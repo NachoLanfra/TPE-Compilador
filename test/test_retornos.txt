@@ -1,0 +1,161 @@
+{{ TEST DE RET - Grupo 32
+   Los avisos esperados estan indicados en cada caso. }}
+prueba_ret
+
+ushortint x;
+doublef d;
+
+{{ CASO 1: un solo ret. Esperado: sin aviso }}
+ushortint function f1(ushortint a)
+begin
+    ret(a);
+end;
+
+{{ CASO 2: sin ret. Esperado: AVISO en f2 (valor por defecto 0) }}
+ushortint function f2(ushortint a)
+begin
+    a := 1$us;
+end;
+
+{{ CASO 3: varios ret. Esperado: sin aviso }}
+ushortint function f3(ushortint a)
+begin
+    ret(a);
+    a := 2$us;
+    ret(a + 1$us);
+end;
+
+{{ CASO 4: ret solo en la rama then. Esperado: sin aviso }}
+ushortint function f4(ushortint a)
+begin
+    if (a > 1$us)
+        ret(a);
+    end_if;
+end;
+
+{{ CASO 5: ret en ambas ramas del if-else. Esperado: sin aviso }}
+ushortint function f5(ushortint a)
+begin
+    if (a > 1$us)
+        ret(a);
+    else
+        ret(1$us);
+    end_if;
+end;
+
+{{ CASO 6: ret solo en la rama else. Esperado: sin aviso }}
+ushortint function f6(ushortint a)
+begin
+    if (a > 1$us)
+        a := 3$us;
+    else
+        ret(a);
+    end_if;
+end;
+
+{{ CASO 7: ret dentro de bloque begin-end del if. Esperado: sin aviso }}
+ushortint function f7(ushortint a)
+begin
+    if (a > 1$us)
+    begin
+        a := 2$us;
+        ret(a);
+    end;
+    end_if;
+end;
+
+{{ CASO 8: ret dentro de repeat-while. Esperado: sin aviso }}
+ushortint function f8(ushortint a)
+begin
+    repeat
+    begin
+        a := a + 1$us;
+        ret(a);
+    end;
+    while (a < 5$us);
+end;
+
+{{ CASO 9: ret en una funcion de punto flotante. Esperado: sin aviso }}
+doublef function f9(doublef y)
+begin
+    ret(y * 2.0);
+end;
+
+{{ CASO 10: funcion anidada. La interna tiene ret, la externa no.
+   Esperado: sin aviso para interna, AVISO para externa }}
+ushortint function externa(ushortint a)
+    ushortint function interna(ushortint b)
+    begin
+        ret(b);
+    end;
+begin
+    a := 1$us;
+end;
+
+{{ CASO 11: funcion anidada. La externa tiene ret, la interna no.
+   Esperado: AVISO para interna, sin aviso para externa }}
+ushortint function externa2(ushortint a)
+    ushortint function interna2(ushortint b)
+    begin
+        b := 1$us;
+    end;
+begin
+    ret(a);
+end;
+
+{{ CASO 12: ret despues de una funcion anidada cerrada.
+   Esperado: el ret cuenta para la externa (sin aviso) }}
+ushortint function externa3(ushortint a)
+    ushortint function interna3(ushortint b)
+    begin
+        ret(b);
+    end;
+begin
+    ret(a);
+end;
+
+{{ CASO 13: ret mal formado (sin parentesis). Esperado: ERROR "sentencia 'ret' mal formada"
+   y la funcion sigue compilando }}
+ushortint function f13(ushortint a)
+begin
+    ret a;
+    ret(a);
+end;
+
+{{ CASO 14: ret con error y sin otro ret. Esperado: ERROR de ret mal formado + AVISO de falta de ret }}
+ushortint function f14(ushortint a)
+begin
+    ret a;
+end;
+
+{{ CASO 15: metodo con ret y metodo sin ret. Esperado: sin aviso para m1, AVISO para m2 }}
+class c
+begin
+    ushortint m1(ushortint q)
+    begin
+        ret(q);
+    end;
+    ushortint m2(ushortint q)
+    begin
+        q := 1$us;
+    end;
+end;
+
+{{ CASO 16: funcion luego de una con error en cabecera. Verifica que la pila no se desbalancee.
+   Esperado: ERROR en f16 y SIN aviso para f17 (tiene ret) }}
+ushortint function f16(ushortint p
+begin
+    ret(p);
+end;
+
+ushortint function f17(ushortint k)
+begin
+    ret(k);
+end;
+
+begin
+    {{ CASO 17: ret en el programa principal (fuera de funcion).
+       Hoy se acepta sin error. Ver nota en el informe. }}
+    ret(x);
+    x := f1(1$us);
+end;

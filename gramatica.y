@@ -65,6 +65,8 @@ static EntradaTS* declarar(EntradaTS *raw, Uso uso, const InfoTipo &t) {
 
 %token <ts_ref> ID CTE_INT CTE_FLOAT CTE_STR
 %type <info_tipo> tipo
+%type <marca_f> cabecera_funcion cabecera_metodo
+%type <marca_c> cabecera_clase
 %type <ts_ref> cte factor factor_restr invocacion acceso_objeto
 
 %token PR_IF PR_ELSE PR_END_IF PR_BEGIN PR_END
@@ -72,7 +74,7 @@ static EntradaTS* declarar(EntradaTS *raw, Uso uso, const InfoTipo &t) {
 %token PR_EXTENDS PR_TYPEDEF PR_REPEAT PR_WHILE
 %token OP_ASIGNACION OP_IGUAL_IGUAL OP_MENOR_IGUAL OP_MAYOR_IGUAL OP_DISTINTO
 
-/* Si hay un error sintáctico y el parser descarta un marcador, se deshace lo que ese marcador apiló */
+/* Si un error sintáctico hace que el parser descarte una cabecera ya reducida, se deshace lo que apiló */
 %destructor { funciones_abiertas.pop_back(); pila_ambitos.pop_back(); } <marca_f>
 %destructor { clases_abiertas.pop_back();    pila_ambitos.pop_back(); } <marca_c>
 
@@ -168,7 +170,7 @@ lista_params_formales
       }
     ;
 
-decl_funcion
+cabecera_funcion
     : tipo PR_FUNCTION ID
       {
           EntradaTS *f = declarar($3, Uso::FUNCION, $1);
@@ -176,8 +178,12 @@ decl_funcion
           f->params.clear();
           funciones_abiertas.push_back(f);
           pila_ambitos.push_back($3->lexema);   // parametros y locales viven en el ambito de la funcion
-          $<marca_f>$ = 1;
+          $$ = 1;
       }
+    ;
+
+decl_funcion
+    : cabecera_funcion
       '(' lista_params_formales ')' sent_decl_lista
       PR_BEGIN sent_ejec_lista PR_END ';'
       {
@@ -194,8 +200,10 @@ decl_funcion
           std::cout << "Declaracion de funcion (linea "
                     << LINEA_ACTUAL << ")" << std::endl;
       }
-    | tipo PR_FUNCTION ID error PR_END ';'
+    | cabecera_funcion error PR_END ';'
       {
+          funciones_abiertas.pop_back();   // la cabecera se consumio en esta regla: no la destruye el %destructor
+          pila_ambitos.pop_back();
           std::cerr << "Linea " << LINEA_ACTUAL
                     << ": Error: declaracion de funcion mal formada."
                     << std::endl;
@@ -203,24 +211,29 @@ decl_funcion
       }
     ;
 
-decl_clase
+cabecera_clase
     : PR_CLASS ID
       {
           EntradaTS *c = declarar($2, Uso::CLASE, SIN_TIPO);
           c->padres.clear();
           clases_abiertas.push_back(c);
           pila_ambitos.push_back($2->lexema);   // atributos y metodos viven en el ambito de la clase
-          $<marca_c>$ = 1;
+          $$ = 1;
       }
-      PR_BEGIN clase_item_lista PR_END ';'
+    ;
+
+decl_clase
+    : cabecera_clase PR_BEGIN clase_item_lista PR_END ';'
       {
           clases_abiertas.pop_back();
           pila_ambitos.pop_back();
           std::cout << "Declaracion de clase (linea "
                     << LINEA_ACTUAL << ")" << std::endl;
       }
-    | PR_CLASS ID error PR_END ';'
+    | cabecera_clase error PR_END ';'
       {
+          clases_abiertas.pop_back();
+          pila_ambitos.pop_back();
           std::cerr << "Linea " << LINEA_ACTUAL
                     << ": Error: declaracion de clase mal formada."
                     << std::endl;
@@ -233,20 +246,24 @@ clase_item_lista
     | clase_item
     ;
 
-clase_item
-    : tipo ID ';'
-      {
-          declarar($2, Uso::ATRIBUTO, $1);
-      }
-    | tipo ID
+cabecera_metodo
+    : tipo ID
       {
           EntradaTS *m = declarar($2, Uso::METODO, $1);
           m->tiene_ret = false;
           m->params.clear();
           funciones_abiertas.push_back(m);
           pila_ambitos.push_back($2->lexema);
-          $<marca_f>$ = 1;
+          $$ = 1;
       }
+    ;
+
+clase_item
+    : tipo ID ';'
+      {
+          declarar($2, Uso::ATRIBUTO, $1);
+      }
+    | cabecera_metodo
       '(' lista_params_formales ')' sent_decl_lista
       PR_BEGIN sent_ejec_lista PR_END ';'
       {
