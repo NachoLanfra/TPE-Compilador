@@ -25,6 +25,7 @@ struct EntradaTS {
     std::vector<Tipo> params;         // función/método: tipos de los parámetros formales
     std::vector<std::string> padres;  // clase: lista de extends
     std::vector<std::string> valores; // typedef: elementos de [ ... ]
+    bool tiene_ret = false;           // función/método: tiene al menos un ret (si no, retorna valor por defecto de su tipo)
 };
 
 extern std::unordered_map<std::string, EntradaTS> tabla_simbolos;
