@@ -1,11 +1,24 @@
 %define parse.error verbose
 %{
 #include <iostream>
-#include <string>
-#include "main.h"     /* EntradaTS, tabla_simbolos, LINEA_ACTUAL */
-
+#include "main.h"
 int yylex();
 void yyerror(const char *s);
+
+static Tipo tipo_actual   = Tipo::NINGUNO;
+static Uso  uso_actual    = Uso::NINGUNO;
+static std::string ambito_actual = "global";
+static std::string clase_actual;     // para objetos
+static std::vector<bool> retornos;   // una bandera por función abierta (hay funciones anidadas)
+
+static void declarar(EntradaTS *e, Uso uso, Tipo tipo) {
+    if (e->uso != Uso::NINGUNO)
+        std::cerr << "Linea " << LINEA_ACTUAL << ": '" << e->lexema
+                  << "' ya declarado" << std::endl;
+    e->uso = uso;
+    e->tipo = tipo;
+    e->ambito = ambito_actual;
+}
 %}
 
 %union {
@@ -99,13 +112,18 @@ lista_params_formales
     | tipo ID
     ;
 
-decl_funcion
-    : tipo PR_FUNCTION ID '(' lista_params_formales ')' sent_decl_lista
-      PR_BEGIN sent_ejec_lista PR_END ';'
-      {
-          std::cout << "Declaracion de funcion (linea "
-                    << LINEA_ACTUAL << ")" << std::endl;
-      }
+decl_funcion : tipo PR_FUNCTION ID { retornos.push_back(false); }
+       '(' lista_params_formales ')' sent_decl_lista
+       PR_BEGIN sent_ejec_lista PR_END ';'
+       {
+           if (!retornos.back()) {
+               yyerror("la funcion no tiene sentencia return");
+           }
+           retornos.pop_back();
+           std::cout << "Declaracion de funcion (linea "
+                     << LINEA_ACTUAL << ")" << std::endl;
+       }
+             
     | tipo PR_FUNCTION ID error PR_END ';'
       {
           std::cerr << "Linea " << LINEA_ACTUAL
@@ -256,12 +274,24 @@ indice
     | ID
     ;
 
-retorno
-    : PR_RET '(' expresion ')' ';'
+retorno 
+    :PR_RET '(' expresion ')' ';'
       {
+          if (!retornos.empty()) {
+              retornos.back() = true;
+          }
           std::cout << "Sentencia RET (linea "
                     << LINEA_ACTUAL << ")" << std::endl;
       }
+
+      /*              if (!retornos.empty()) {
+                  retornos.back() = true;
+              } else {
+                  yyerror("return fuera de una funcion");
+              } */
+
+    // lo que esta comentado es por si no se admite un return fuera de una funcion
+
     | PR_RET error ';'
       {
           std::cerr << "Linea " << LINEA_ACTUAL

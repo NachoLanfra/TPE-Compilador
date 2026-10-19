@@ -1,0 +1,22 @@
+
+prog_sin_ret
+
+ushortint function con_return(ushortint a)
+begin
+    ret(a);
+end;
+
+ushortint function sin_return(ushortint b)
+begin
+    b := 1$us;
+end;
+
+ushortint function asigna_y_retorna(ushortint c)
+begin
+    c := 1$us;
+    ret(c);
+end;
+
+begin
+    pout('Prueba de funciones');
+end;
