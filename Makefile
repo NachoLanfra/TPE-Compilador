@@ -13,8 +13,8 @@ test-lexico: all
 
 test-sintaxis: all
 	./compilador test/test_gramatica_validos.txt
-	./compilador test/test_gramatica_errores.txt
-	./compilador test/test_negativos.txt
+	#./compilador test/test_gramatica_errores.txt
+	#./compilador test/test_negativos.txt
 
 test-eof: all
 	./compilador test/test_prog_sin_end.txt

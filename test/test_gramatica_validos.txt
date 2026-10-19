@@ -57,9 +57,12 @@ begin
 
     resultado := factor + 1.5;
     contador := valor;
+    if (a > b) 
+        ret(valor);
+    else 
+        a := 0.0;
+    end_if;
 
-    ret(resultado);
-    ret(factor);
 
 end;
 
