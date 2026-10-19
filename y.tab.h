@@ -115,11 +115,12 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 24 "gramatica.y"
+#line 31 "gramatica.y"
 
     EntradaTS *ts_ref;
+    Tipo tipo_val;
 
-#line 123 "y.tab.h"
+#line 124 "y.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;

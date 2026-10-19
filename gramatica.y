@@ -5,33 +5,76 @@
 int yylex();
 void yyerror(const char *s);
 
-static Tipo tipo_actual   = Tipo::NINGUNO;
-static Uso  uso_actual    = Uso::NINGUNO;
-static std::string ambito_actual = "global";
-static std::string clase_actual;     // para objetos
-static std::vector<bool> retornos;   // una bandera por función abierta (hay funciones anidadas)
+static const InfoTipo SIN_TIPO = { Tipo::NINGUNO, nullptr };
 
-static void declarar(EntradaTS *e, Uso uso, Tipo tipo) {
-    if (e->uso != Uso::NINGUNO)
-        std::cerr << "Linea " << LINEA_ACTUAL << ": '" << e->lexema
-                  << "' ya declarado" << std::endl;
-    e->uso = uso;
-    e->tipo = tipo;
-    e->ambito = ambito_actual;
+// Pila de ámbitos: main, main:f, main:f:g ... (base del name mangling)
+static std::vector<std::string> pila_ambitos = { "main" };
+static std::vector<EntradaTS*> funciones_abiertas;  // funciones/métodos en curso (hay anidamiento)
+static std::vector<EntradaTS*> clases_abiertas;     // clases en curso
+static std::vector<EntradaTS*> ids_pendientes;      // lista_ids en construcción
+static std::vector<std::string> valores_pendientes; // lista_valores (typedef) en construcción
+
+static std::string ambito_actual() {
+    std::string r;
+    for (size_t i = 0; i < pila_ambitos.size(); i++) {
+        if (i) r += ":";
+        r += pila_ambitos[i];
+    }
+    return r;
+}
+
+// "a:main:f" -> "a"
+static std::string nombre_base(const EntradaTS *e) {
+    return e->lexema.substr(0, e->lexema.find(':'));
+}
+
+static std::string valor_por_defecto(Tipo tipo) {
+    switch (tipo) {
+        case Tipo::USHORTINT: return "0";
+        case Tipo::DOUBLEF:   return "0.0";
+        default:              return "0";
+    }
+}
+
+// Da de alta un símbolo con su nombre "mangleado" (nombre:ambito).
+// 'raw' es la entrada que creó el léxico para el lexema sin ámbito.
+static EntradaTS* declarar(EntradaTS *raw, Uso uso, const InfoTipo &t) {
+    std::string clave = raw->lexema + ":" + ambito_actual();
+    auto it = tabla_simbolos.find(clave);
+    if (it != tabla_simbolos.end()) {
+        std::cerr << "Linea " << LINEA_ACTUAL << ": Error: '" << raw->lexema
+                  << "' ya fue declarado en el ambito " << ambito_actual() << std::endl;
+        return &(it->second);
+    }
+    EntradaTS e;
+    e.lexema = clave;
+    e.uso    = uso;
+    e.tipo   = t.t;
+    e.ambito = ambito_actual();
+    if (t.clase) e.tipo_nombre = t.clase->lexema;
+    return &(tabla_simbolos.insert({clave, e}).first->second);
 }
 %}
 
 %union {
     EntradaTS *ts_ref;
+    InfoTipo info_tipo;
+    int marca_f;   // marcador de función/método abierto
+    int marca_c;   // marcador de clase abierta
 }
 
 %token <ts_ref> ID CTE_INT CTE_FLOAT CTE_STR
+%type <info_tipo> tipo
 %type <ts_ref> cte factor factor_restr invocacion acceso_objeto
 
 %token PR_IF PR_ELSE PR_END_IF PR_BEGIN PR_END
 %token PR_POUT PR_RET PR_CLASS PR_FUNCTION PR_USHORTINT PR_DOUBLEF
 %token PR_EXTENDS PR_TYPEDEF PR_REPEAT PR_WHILE
 %token OP_ASIGNACION OP_IGUAL_IGUAL OP_MENOR_IGUAL OP_MAYOR_IGUAL OP_DISTINTO
+
+/* Si hay un error sintáctico y el parser descarta un marcador, se deshace lo que ese marcador apiló */
+%destructor { funciones_abiertas.pop_back(); pila_ambitos.pop_back(); } <marca_f>
+%destructor { clases_abiertas.pop_back();    pila_ambitos.pop_back(); } <marca_c>
 
 %left '+' '-'
 %left '*' '/'
@@ -65,6 +108,8 @@ sent_decl_lista
     : sent_decl_lista sent_decl
     | sent_decl_lista error ';'
       {
+          ids_pendientes.clear();
+          valores_pendientes.clear();
           std::cerr << "Linea " << LINEA_ACTUAL
                     << ": Error: sentencia declarativa mal formada. "
                     << "Se descartan tokens hasta ';'."
@@ -82,24 +127,27 @@ sent_decl
     ;
 
 tipo
-    : PR_USHORTINT
-    | PR_DOUBLEF
-    | ID
+    : PR_USHORTINT { $$.t = Tipo::USHORTINT; $$.clase = nullptr; }
+    | PR_DOUBLEF   { $$.t = Tipo::DOUBLEF;   $$.clase = nullptr; }
+    | ID           { $$.t = Tipo::NINGUNO;   $$.clase = $1; }   /* clase o typedef: se resuelve mas adelante */
     ;
 
 lista_ids
-    : lista_ids ',' ID
-    | ID
+    : lista_ids ',' ID { ids_pendientes.push_back($3); }
+    | ID               { ids_pendientes.push_back($1); }
     ;
 
 decl_variables
     : tipo lista_ids ';'
       {
+          for (EntradaTS *id : ids_pendientes) declarar(id, Uso::VARIABLE, $1);
+          ids_pendientes.clear();
           std::cout << "Declaracion de variables (linea "
                     << LINEA_ACTUAL << ")" << std::endl;
       }
     | tipo error ';'
       {
+          ids_pendientes.clear();
           std::cerr << "Linea " << LINEA_ACTUAL
                     << ": Error: declaracion de variables mal formada."
                     << std::endl;
@@ -109,21 +157,43 @@ decl_variables
 
 lista_params_formales
     : lista_params_formales ',' tipo ID
+      {
+          declarar($4, Uso::PARAMETRO, $3);
+          if (!funciones_abiertas.empty()) funciones_abiertas.back()->params.push_back($3.t);
+      }
     | tipo ID
+      {
+          declarar($2, Uso::PARAMETRO, $1);
+          if (!funciones_abiertas.empty()) funciones_abiertas.back()->params.push_back($1.t);
+      }
     ;
 
-decl_funcion : tipo PR_FUNCTION ID { retornos.push_back(false); }
-       '(' lista_params_formales ')' sent_decl_lista
-       PR_BEGIN sent_ejec_lista PR_END ';'
-       {
-           if (!retornos.back()) {
-               yyerror("la funcion no tiene sentencia return");
-           }
-           retornos.pop_back();
-           std::cout << "Declaracion de funcion (linea "
-                     << LINEA_ACTUAL << ")" << std::endl;
-       }
-             
+decl_funcion
+    : tipo PR_FUNCTION ID
+      {
+          EntradaTS *f = declarar($3, Uso::FUNCION, $1);
+          f->tiene_ret = false;
+          f->params.clear();
+          funciones_abiertas.push_back(f);
+          pila_ambitos.push_back($3->lexema);   // parametros y locales viven en el ambito de la funcion
+          $<marca_f>$ = 1;
+      }
+      '(' lista_params_formales ')' sent_decl_lista
+      PR_BEGIN sent_ejec_lista PR_END ';'
+      {
+          EntradaTS *func = funciones_abiertas.back();
+          funciones_abiertas.pop_back();
+          pila_ambitos.pop_back();
+
+          if (!func->tiene_ret) {
+              std::cout << "Linea " << LINEA_ACTUAL
+                        << ": Aviso: la funcion '" << nombre_base(func)
+                        << "' no tiene sentencia 'ret'. Se asume valor de retorno por defecto ("
+                        << valor_por_defecto(func->tipo) << ")." << std::endl;
+          }
+          std::cout << "Declaracion de funcion (linea "
+                    << LINEA_ACTUAL << ")" << std::endl;
+      }
     | tipo PR_FUNCTION ID error PR_END ';'
       {
           std::cerr << "Linea " << LINEA_ACTUAL
@@ -134,8 +204,18 @@ decl_funcion : tipo PR_FUNCTION ID { retornos.push_back(false); }
     ;
 
 decl_clase
-    : PR_CLASS ID PR_BEGIN clase_item_lista PR_END ';'
+    : PR_CLASS ID
       {
+          EntradaTS *c = declarar($2, Uso::CLASE, SIN_TIPO);
+          c->padres.clear();
+          clases_abiertas.push_back(c);
+          pila_ambitos.push_back($2->lexema);   // atributos y metodos viven en el ambito de la clase
+          $<marca_c>$ = 1;
+      }
+      PR_BEGIN clase_item_lista PR_END ';'
+      {
+          clases_abiertas.pop_back();
+          pila_ambitos.pop_back();
           std::cout << "Declaracion de clase (linea "
                     << LINEA_ACTUAL << ")" << std::endl;
       }
@@ -155,8 +235,32 @@ clase_item_lista
 
 clase_item
     : tipo ID ';'
-    | tipo ID '(' lista_params_formales ')' sent_decl_lista
+      {
+          declarar($2, Uso::ATRIBUTO, $1);
+      }
+    | tipo ID
+      {
+          EntradaTS *m = declarar($2, Uso::METODO, $1);
+          m->tiene_ret = false;
+          m->params.clear();
+          funciones_abiertas.push_back(m);
+          pila_ambitos.push_back($2->lexema);
+          $<marca_f>$ = 1;
+      }
+      '(' lista_params_formales ')' sent_decl_lista
       PR_BEGIN sent_ejec_lista PR_END ';'
+      {
+          EntradaTS *metodo = funciones_abiertas.back();
+          funciones_abiertas.pop_back();
+          pila_ambitos.pop_back();
+
+          if (!metodo->tiene_ret) {
+              std::cout << "Linea " << LINEA_ACTUAL
+                        << ": Aviso: el metodo '" << nombre_base(metodo)
+                        << "' no tiene sentencia 'ret'. Se asume valor de retorno por defecto ("
+                        << valor_por_defecto(metodo->tipo) << ")." << std::endl;
+          }
+      }
     | extends_clause
     | tipo error ';'
       {
@@ -170,11 +274,15 @@ clase_item
 extends_clause
     : PR_EXTENDS lista_ids ';'
       {
+          for (EntradaTS *id : ids_pendientes)
+              if (!clases_abiertas.empty()) clases_abiertas.back()->padres.push_back(id->lexema);
+          ids_pendientes.clear();
           std::cout << "Clausula EXTENDS (linea "
                     << LINEA_ACTUAL << ")" << std::endl;
       }
     | PR_EXTENDS error ';'
       {
+          ids_pendientes.clear();
           std::cerr << "Linea " << LINEA_ACTUAL
                     << ": Error: clausula 'extends' mal formada."
                     << std::endl;
@@ -185,11 +293,15 @@ extends_clause
 decl_typedef
     : PR_TYPEDEF ID '=' '[' lista_valores ']' ';'
       {
+          EntradaTS *t = declarar($2, Uso::TYPEDEF, SIN_TIPO);
+          t->valores = valores_pendientes;
+          valores_pendientes.clear();
           std::cout << "Declaracion de typedef (linea "
                     << LINEA_ACTUAL << ")" << std::endl;
       }
     | PR_TYPEDEF error ';'
       {
+          valores_pendientes.clear();
           std::cerr << "Linea " << LINEA_ACTUAL
                     << ": Error: declaracion de typedef mal formada."
                     << std::endl;
@@ -198,8 +310,8 @@ decl_typedef
     ;
 
 lista_valores
-    : lista_valores ',' cte
-    | cte
+    : lista_valores ',' cte { valores_pendientes.push_back($3->lexema); }
+    | cte                   { valores_pendientes.push_back($1->lexema); }
     ;
 
 /* ---------- sentencias ejecutables ---------- */
@@ -275,23 +387,14 @@ indice
     ;
 
 retorno 
-    :PR_RET '(' expresion ')' ';'
+    : PR_RET '(' expresion ')' ';'
       {
-          if (!retornos.empty()) {
-              retornos.back() = true;
+          if (!funciones_abiertas.empty()) {
+              funciones_abiertas.back()->tiene_ret = true;
           }
           std::cout << "Sentencia RET (linea "
                     << LINEA_ACTUAL << ")" << std::endl;
       }
-
-      /*              if (!retornos.empty()) {
-                  retornos.back() = true;
-              } else {
-                  yyerror("return fuera de una funcion");
-              } */
-
-    // lo que esta comentado es por si no se admite un return fuera de una funcion
-
     | PR_RET error ';'
       {
           std::cerr << "Linea " << LINEA_ACTUAL
@@ -404,23 +507,26 @@ factor
 
           $$ = $2;
       }
-	| '-' CTE_FLOAT
-        {
-            std::string lexema_neg = "-" + $2->lexema;
-      
-            auto it = tabla_simbolos.find(lexema_neg);
-      
-            if (it == tabla_simbolos.end()) {
-                EntradaTS nueva_entrada;
-                nueva_entrada.lexema = lexema_neg;
-      
-                it = tabla_simbolos.insert(
-                    {lexema_neg, nueva_entrada}
-                ).first;
-            }
-      
-            $$ = &(it->second);
-        }
+    | '-' CTE_FLOAT
+      {
+          // El rango ya lo valido el lexico (es simetrico), solo falta registrar la constante negativa
+          std::string lexema_neg = "-" + $2->lexema;
+
+          auto it = tabla_simbolos.find(lexema_neg);
+
+          if (it == tabla_simbolos.end()) {
+              EntradaTS nueva_entrada;
+              nueva_entrada.lexema = lexema_neg;
+              nueva_entrada.tipo = Tipo::DOUBLEF;
+              nueva_entrada.uso  = Uso::CONSTANTE;
+
+              it = tabla_simbolos.insert(
+                  {lexema_neg, nueva_entrada}
+              ).first;
+          }
+
+          $$ = &(it->second);
+      }
     | invocacion
     | acceso_objeto
     | ID '=' '(' expresion_restr ')'
@@ -461,6 +567,8 @@ factor_restr
           if (it == tabla_simbolos.end()) {
               EntradaTS nueva_entrada;
               nueva_entrada.lexema = lexema_neg;
+              nueva_entrada.tipo = Tipo::DOUBLEF;
+              nueva_entrada.uso  = Uso::CONSTANTE;
 
               it = tabla_simbolos.insert(
                   {lexema_neg, nueva_entrada}
