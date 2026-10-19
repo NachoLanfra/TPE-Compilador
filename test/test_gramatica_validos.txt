@@ -61,6 +61,7 @@ begin
         ret(valor);
     else 
         a := 0.0;
+        
     end_if;
 
 
