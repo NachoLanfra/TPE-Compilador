@@ -373,6 +373,7 @@ int yylex() {
                     }
                     yylval.ts_ref = a_ts(lexema_actual);
                     //std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual << std::endl;
+                    yylval.ts_ref->tipo = Tipo::USHORTINT; yylval.ts_ref->uso = Uso::CONSTANTE;
                     return CTE_INT;
                     
                 case A_FLT:
@@ -385,12 +386,14 @@ int yylex() {
                     }
                     yylval.ts_ref = a_ts(lexema_actual);
                     //std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual << std::endl;
+                    yylval.ts_ref->tipo = Tipo::DOUBLEF; yylval.ts_ref->uso = Uso::CONSTANTE;
                     return CTE_FLOAT;
                     
                 case A_STR:
                     // Si es una cadena, lo agregamos a la tabla de simbolos y retornamos el token CTE_STR
                     yylval.ts_ref = a_ts(lexema_actual); 
                     //std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual << std::endl;
+                    yylval.ts_ref->uso = Uso::CADENA;
                     return CTE_STR;
                     
                 case A_ATK: {
@@ -473,6 +476,7 @@ int yylex() {
                 }                
                 yylval.ts_ref = a_ts(lexema_actual);
                 // std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual << std::endl;
+                yylval.ts_ref->tipo = Tipo::DOUBLEF; yylval.ts_ref->uso = Uso::CONSTANTE;
                 return CTE_FLOAT;
 
             case A_USH:
@@ -483,6 +487,7 @@ int yylex() {
                 }
                 yylval.ts_ref = a_ts(lexema_actual);
                 // std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual << std::endl;
+                yylval.ts_ref->tipo = Tipo::USHORTINT; yylval.ts_ref->uso = Uso::CONSTANTE;
                 return CTE_INT;    
                     
             default: // Si es un lexema incompleto, imprimimos un mensaje de error y descartamos el lexema, ejemplo: cadena sin cerrar, etc.

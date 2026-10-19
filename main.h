@@ -28,6 +28,12 @@ struct EntradaTS {
     bool tiene_ret = false;           // función/método: tiene al menos un ret (si no, retorna valor por defecto de su tipo)
 };
 
+struct InfoTipo {
+    Tipo t;
+    EntradaTS *clase;
+};
+
+
 extern std::unordered_map<std::string, EntradaTS> tabla_simbolos;
 extern int LINEA_ACTUAL;
 extern std::ifstream archivo;
