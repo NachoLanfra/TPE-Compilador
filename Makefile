@@ -1,5 +1,5 @@
 all: y.tab.c
-	g++ y.tab.c main.cpp -o compilador
+	g++ y.tab.c main.cpp arbol.cpp -o compilador
 
 y.tab.c: gramatica.y
 	bison -dy -Wno-yacc gramatica.y
