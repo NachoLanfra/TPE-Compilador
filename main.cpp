@@ -531,6 +531,15 @@ int main(int argc, char* argv[]) {
         std::cout << ">>> El programa no se pudo recuperar del error." << std::endl;
     }
 
+    // Las entradas "crudas" creadas por el léxico para los identificadores (sin ámbito) ya no se usan:
+    // cada símbolo declarado quedó registrado con su nombre mangleado (nombre:ámbito).
+    for (auto it = tabla_simbolos.begin(); it != tabla_simbolos.end(); ) {
+        if (it->second.uso == Uso::NINGUNO && it->first.find(':') == std::string::npos)
+            it = tabla_simbolos.erase(it);
+        else
+            ++it;
+    }
+
     // --- ESTADÍSTICAS Y TABLA DE SÍMBOLOS ---
     std::cout << "\n======================================" << std::endl;
     std::cout << "Líneas totales analizadas: " << LINEA_ACTUAL << std::endl;
@@ -540,8 +549,15 @@ int main(int argc, char* argv[]) {
     if (tabla_simbolos.empty()) {
         std::cout << "La tabla está vacía." << std::endl;
     } else {
+        static const char* USOS[]  = { "-", "variable", "parametro", "funcion", "clase", "atributo",
+                                       "metodo", "objeto", "typedef", "programa", "constante", "cadena" };
+        static const char* TIPOS[] = { "-", "ushortint", "doublef" };
         for (const auto& par : tabla_simbolos) {
-            std::cout << " -> " << par.first << std::endl;
+            const EntradaTS &e = par.second;
+            std::cout << " -> " << par.first
+                      << "   [uso: " << USOS[(int)e.uso]
+                      << ", tipo: " << (e.tipo_nombre.empty() ? TIPOS[(int)e.tipo] : e.tipo_nombre.c_str())
+                      << "]" << std::endl;
         }
     }
     std::cout << "-----------------------------------------" << std::endl;

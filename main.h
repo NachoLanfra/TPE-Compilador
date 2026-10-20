@@ -12,7 +12,7 @@ enum class Uso {
     NINGUNO,      // ID visto por el léxico pero todavía no declarado
     VARIABLE, PARAMETRO, FUNCION,
     CLASE, ATRIBUTO, METODO,
-    OBJETO, TYPEDEF,
+    OBJETO, TYPEDEF, PROGRAMA,
     CONSTANTE, CADENA
 };
 
@@ -21,7 +21,7 @@ struct EntradaTS {
     Uso  uso  = Uso::NINGUNO;
     Tipo tipo = Tipo::NINGUNO;        // variable/atributo/param: su tipo; función/método: tipo de retorno
     std::string tipo_nombre;          // objeto: nombre de su clase
-    std::string ambito;               // dónde se declaró ("global", nombre de función, de clase)
+    std::string ambito;               // dónde se declaró ("main", "main:f", "main:c", ...)
     std::vector<Tipo> params;         // función/método: tipos de los parámetros formales
     std::vector<std::string> padres;  // clase: lista de extends
     std::vector<std::string> valores; // typedef: elementos de [ ... ]

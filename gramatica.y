@@ -54,6 +54,98 @@ static EntradaTS* declarar(EntradaTS *raw, Uso uso, const InfoTipo &t) {
     if (t.clase) e.tipo_nombre = t.clase->lexema;
     return &(tabla_simbolos.insert({clave, e}).first->second);
 }
+
+static const char* nombre_uso(Uso u) {
+    switch (u) {
+        case Uso::VARIABLE:  return "variable";
+        case Uso::PARAMETRO: return "parametro";
+        case Uso::FUNCION:   return "funcion";
+        case Uso::CLASE:     return "clase";
+        case Uso::ATRIBUTO:  return "atributo";
+        case Uso::METODO:    return "metodo";
+        case Uso::OBJETO:    return "objeto";
+        case Uso::TYPEDEF:   return "tipo definido (typedef)";
+        case Uso::PROGRAMA:  return "nombre de programa";
+        case Uso::CONSTANTE: return "constante";
+        case Uso::CADENA:    return "cadena";
+        default:             return "simbolo";
+    }
+}
+
+// Busca 'nombre' desde el ámbito actual hacia afuera: nombre:main:f:g, nombre:main:f, nombre:main
+static EntradaTS* buscar(const std::string &nombre) {
+    for (size_t n = pila_ambitos.size(); n > 0; n--) {
+        std::string amb;
+        for (size_t i = 0; i < n; i++) {
+            if (i) amb += ":";
+            amb += pila_ambitos[i];
+        }
+        auto it = tabla_simbolos.find(nombre + ":" + amb);
+        if (it != tabla_simbolos.end()) return &(it->second);
+    }
+    return nullptr;
+}
+
+// Todo uso de un identificador pasa por acá. Devuelve nullptr (y informa) si no es visible.
+static EntradaTS* resolver(EntradaTS *raw) {
+    EntradaTS *e = buscar(raw->lexema);
+    if (!e)
+        std::cerr << "Linea " << LINEA_ACTUAL << ": Error: '" << raw->lexema
+                  << "' no esta declarado o no es visible en el ambito " << ambito_actual() << std::endl;
+    return e;
+}
+
+// Identificador usado como variable (lado izquierdo de una asignacion, operando, indice)
+static EntradaTS* resolver_valor(EntradaTS *raw) {
+    EntradaTS *e = resolver(raw);
+    if (e && e->uso != Uso::VARIABLE && e->uso != Uso::PARAMETRO && e->uso != Uso::ATRIBUTO) {
+        std::cerr << "Linea " << LINEA_ACTUAL << ": Error: '" << raw->lexema << "' es "
+                  << nombre_uso(e->uso) << " y se usa como variable" << std::endl;
+        return nullptr;
+    }
+    return e;
+}
+
+// Identificador usado como funcion o metodo (invocacion)
+static EntradaTS* resolver_funcion(EntradaTS *raw) {
+    EntradaTS *e = resolver(raw);
+    if (e && e->uso != Uso::FUNCION && e->uso != Uso::METODO) {
+        std::cerr << "Linea " << LINEA_ACTUAL << ": Error: '" << raw->lexema << "' es "
+                  << nombre_uso(e->uso) << " y se usa como funcion" << std::endl;
+        return nullptr;
+    }
+    return e;
+}
+
+// Identificador usado como tipo (declaracion de variables, parametros, retornos)
+static EntradaTS* resolver_tipo(EntradaTS *raw) {
+    EntradaTS *e = resolver(raw);
+    if (e && e->uso != Uso::CLASE && e->uso != Uso::TYPEDEF) {
+        std::cerr << "Linea " << LINEA_ACTUAL << ": Error: '" << raw->lexema << "' es "
+                  << nombre_uso(e->uso) << " y se usa como tipo" << std::endl;
+        return nullptr;
+    }
+    return e;
+}
+
+// Identificador a la izquierda de '.' o '[' : tiene que ser una variable cuyo tipo sea una clase
+static EntradaTS* resolver_objeto(EntradaTS *raw) {
+    EntradaTS *e = resolver_valor(raw);
+    if (!e) return nullptr;
+    bool es_objeto = false;
+    if (!e->tipo_nombre.empty()) {
+        auto it = tabla_simbolos.find(e->tipo_nombre);
+        es_objeto = (it != tabla_simbolos.end() && it->second.uso == Uso::CLASE);
+    }
+    bool tipo_roto = (e->tipo == Tipo::NINGUNO && e->tipo_nombre.empty());  // ya se informo el error en su declaracion
+    if (!es_objeto && !tipo_roto) {
+        std::cerr << "Linea " << LINEA_ACTUAL << ": Error: '" << raw->lexema
+                  << "' no es un objeto de una clase" << std::endl;
+        return nullptr;
+    }
+    return e;
+}
+
 %}
 
 %union {
@@ -84,24 +176,28 @@ static EntradaTS* declarar(EntradaTS *raw, Uso uso, const InfoTipo &t) {
 %%
 
 prog
-    : ID sent_decl_lista PR_BEGIN sent_ejec_lista PR_END ';'
+    : nombre_prog sent_decl_lista PR_BEGIN sent_ejec_lista PR_END ';'
       {
           std::cout << "Se reconocio un programa" << std::endl;
       }
-    | ID sent_decl_lista error sent_ejec_lista PR_END ';'
+    | nombre_prog sent_decl_lista error sent_ejec_lista PR_END ';'
       {
           std::cerr << "Linea " << LINEA_ACTUAL
                     << ": Error: falta 'begin' o esta mal formada la seccion declarativa del programa."
                     << std::endl;
           yyerrok;
       }
-    | ID sent_decl_lista PR_BEGIN sent_ejec_lista PR_END error
+    | nombre_prog sent_decl_lista PR_BEGIN sent_ejec_lista PR_END error
       {
       	  std::cerr << "Linea " << LINEA_ACTUAL
       	            << ": Error: falta ';' despues del 'end' del programa."
       	            << std::endl;
       	  yyerrok;
       }
+    ;
+
+nombre_prog
+    : ID { declarar($1, Uso::PROGRAMA, SIN_TIPO); }
     ;
 
 /* ---------- sentencias declarativas ---------- */
@@ -131,7 +227,7 @@ sent_decl
 tipo
     : PR_USHORTINT { $$.t = Tipo::USHORTINT; $$.clase = nullptr; }
     | PR_DOUBLEF   { $$.t = Tipo::DOUBLEF;   $$.clase = nullptr; }
-    | ID           { $$.t = Tipo::NINGUNO;   $$.clase = $1; }   /* clase o typedef: se resuelve mas adelante */
+    | ID           { $$.t = Tipo::NINGUNO;   $$.clase = resolver_tipo($1); }   /* clase o typedef: debe estar declarado */
     ;
 
 lista_ids
@@ -291,8 +387,18 @@ clase_item
 extends_clause
     : PR_EXTENDS lista_ids ';'
       {
-          for (EntradaTS *id : ids_pendientes)
-              if (!clases_abiertas.empty()) clases_abiertas.back()->padres.push_back(id->lexema);
+          for (EntradaTS *id : ids_pendientes) {
+              EntradaTS *padre = resolver(id);
+              if (!padre || clases_abiertas.empty()) continue;
+              if (padre->uso != Uso::CLASE)
+                  std::cerr << "Linea " << LINEA_ACTUAL << ": Error: '" << id->lexema << "' es "
+                            << nombre_uso(padre->uso) << " y se usa como clase en 'extends'" << std::endl;
+              else if (padre == clases_abiertas.back())
+                  std::cerr << "Linea " << LINEA_ACTUAL << ": Error: la clase '" << id->lexema
+                            << "' no puede heredar de si misma" << std::endl;
+              else
+                  clases_abiertas.back()->padres.push_back(padre->lexema);
+          }
           ids_pendientes.clear();
           std::cout << "Clausula EXTENDS (linea "
                     << LINEA_ACTUAL << ")" << std::endl;
@@ -359,6 +465,7 @@ sent_ejec
 asignacion
     : ID OP_ASIGNACION expresion ';'
       {
+      	  resolver_valor($1);
           std::cout << "Asignacion (linea "
                     << LINEA_ACTUAL << ")" << std::endl;
       }
@@ -374,11 +481,13 @@ asignacion
 asignacion_atributo
     : ID '.' ID '=' expresion ';'
       {
+      	  resolver_objeto($1);
           std::cout << "Asignacion de atributo (linea "
                     << LINEA_ACTUAL << ")" << std::endl;
       }
     | ID '[' indice ']' '=' expresion ';'
       {
+      	  resolver_objeto($1);
           std::cout << "Asignacion posicional de atributo (linea "
                     << LINEA_ACTUAL << ")" << std::endl;
       }
@@ -400,7 +509,7 @@ asignacion_atributo
 
 indice
     : CTE_INT
-    | ID
+    | ID { resolver_valor($1); }
     ;
 
 retorno 
@@ -511,7 +620,7 @@ termino
     ;
 
 factor
-    : ID
+    : ID { $$ = resolver_valor($1); }
     | cte
     | '-' CTE_INT
       {
@@ -546,7 +655,7 @@ factor
       }
     | invocacion
     | acceso_objeto
-    | ID '=' '(' expresion_restr ')'
+    | ID '=' '(' expresion_restr ')' { $$ = resolver_valor($1); }
     ;
 
 expresion_restr
@@ -562,7 +671,7 @@ termino_restr
     ;
 
 factor_restr
-    : ID
+    : ID { $$ = resolver_valor($1); }
     | cte
     | '-' CTE_INT
       {
@@ -604,7 +713,7 @@ cte
     ;
 
 invocacion
-    : ID '(' lista_params_reales ')' lista_ctes_opcional
+    : ID '(' lista_params_reales ')' lista_ctes_opcional { $$ = resolver_funcion($1); }
     | ID '(' error ')' lista_ctes_opcional
       {
           std::cerr << "Linea " << LINEA_ACTUAL
@@ -637,8 +746,8 @@ lista_constantes
     ;
 
 acceso_objeto
-    : ID '.' ID llamada_opcional
-    | ID '[' indice ']'
+    : ID '.' ID llamada_opcional { $$ = resolver_funcion($1); }
+    | ID '[' indice ']' { $$ = resolver_funcion($1); }
     ;
 
 llamada_opcional
