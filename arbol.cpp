@@ -11,18 +11,24 @@ NodoArbol* crear_hoja(EntradaTS *simbolo) {
     nodo->valor = simbolo->lexema;
     nodo->tipo_nodo = TipoNodo::HOJA;
     nodo->simbolo = simbolo;
-    nodo->tipo_dato = simbolo->tipo;
+    nodo->tipo = { simbolo->tipo, nullptr };
+    if (!simbolo->tipo_nombre.empty()) {
+        auto it = tabla_simbolos.find(simbolo->tipo_nombre);
+        if (it != tabla_simbolos.end()) {
+            nodo->tipo.clase = &(it->second);
+        }
+    }
     nodo->izq = nullptr;
     nodo->der = nullptr;
     return nodo;
 }
 
-NodoArbol* crear_hoja_valor(const std::string &valor, Tipo tipo_dato) {
+NodoArbol* crear_hoja_valor(const std::string &valor, InfoTipo tipo) {
     NodoArbol *nodo = new NodoArbol();
     nodo->valor = valor;
     nodo->tipo_nodo = TipoNodo::HOJA;
     nodo->simbolo = nullptr;
-    nodo->tipo_dato = tipo_dato;
+    nodo->tipo = tipo;
     nodo->izq = nullptr;
     nodo->der = nullptr;
     return nodo;
@@ -33,7 +39,7 @@ NodoArbol* crear_nodo(const std::string &valor, NodoArbol *izq, NodoArbol *der, 
     nodo->valor = valor;
     nodo->tipo_nodo = tipo_nodo;
     nodo->simbolo = nullptr;
-    nodo->tipo_dato = Tipo::NINGUNO;
+    nodo->tipo = { Tipo::NINGUNO, nullptr };
     nodo->izq = izq;
     nodo->der = der;
     return nodo;
@@ -53,7 +59,7 @@ NodoArbol* crear_nodo_sentencias(NodoArbol *sentencia_actual, NodoArbol *siguien
 NodoArbol* crear_nodo_asignacion(const std::string &op, NodoArbol *izq, NodoArbol *der) {
     NodoArbol *nodo = crear_nodo(op, izq, der, TipoNodo::ASIGNACION);
     if (izq) {
-        nodo->tipo_dato = izq->tipo_dato; // El tipo de la expresión de asignación es el tipo del destino
+        nodo->tipo = izq->tipo; // El tipo de la expresión de asignación es el tipo del destino
     }
     return nodo;
 }
@@ -81,7 +87,7 @@ NodoArbol* crear_nodo_llamada(EntradaTS *funcion, const std::vector<NodoArbol*> 
     nodo->valor = funcion ? funcion->lexema : "CALL";
     nodo->tipo_nodo = TipoNodo::LLAMADA;
     nodo->simbolo = funcion;
-    nodo->tipo_dato = funcion ? funcion->tipo : Tipo::NINGUNO;
+    nodo->tipo = { funcion ? funcion->tipo : Tipo::NINGUNO, nullptr };
     nodo->izq = nullptr;
     nodo->der = nullptr;
     nodo->params = params;
@@ -93,8 +99,7 @@ NodoArbol* crear_nodo_llamada(EntradaTS *funcion, const std::vector<NodoArbol*> 
 NodoArbol* crear_nodo_acceso_posicional(NodoArbol *objeto, NodoArbol *indice_pos) {
     NodoArbol *nodo = crear_nodo("[]", objeto, indice_pos, TipoNodo::ACCESO_POS);
     if (indice_pos && indice_pos->simbolo) {
-        // Puede propagar el tipo del atributo resuelto
-        nodo->tipo_dato = indice_pos->tipo_dato;
+        nodo->tipo = indice_pos->tipo;
     }
     return nodo;
 }
@@ -103,7 +108,7 @@ NodoArbol* crear_nodo_acceso_posicional(NodoArbol *objeto, NodoArbol *indice_pos
 NodoArbol* crear_nodo_acceso(NodoArbol *objeto, NodoArbol *miembro) {
     NodoArbol *nodo = crear_nodo(".", objeto, miembro, TipoNodo::ACCESO);
     if (miembro) {
-        nodo->tipo_dato = miembro->tipo_dato;
+        nodo->tipo = miembro->tipo;
     }
     return nodo;
 }
@@ -112,7 +117,7 @@ NodoArbol* crear_nodo_acceso(NodoArbol *objeto, NodoArbol *miembro) {
 NodoArbol* crear_nodo_conversion(NodoArbol *nodo_origen, Tipo tipo_destino) {
     std::string etiqueta = (tipo_destino == Tipo::DOUBLEF) ? "CONV_DOUBLEF" : "CONV_USHORTINT";
     NodoArbol *nodo = crear_nodo(etiqueta, nodo_origen, nullptr, TipoNodo::CONVERSION);
-    nodo->tipo_dato = tipo_destino;
+    nodo->tipo = { tipo_destino, nullptr };
     return nodo;
 }
 
@@ -120,8 +125,8 @@ NodoArbol* crear_nodo_conversion(NodoArbol *nodo_origen, Tipo tipo_destino) {
 Tipo aplicar_conversion_implicita(NodoArbol *&izq, NodoArbol *&der) {
     if (!izq || !der) return Tipo::NINGUNO;
 
-    Tipo t_izq = izq->tipo_dato;
-    Tipo t_der = der->tipo_dato;
+    Tipo t_izq = izq->tipo.t;
+    Tipo t_der = der->tipo.t;
 
     if (t_izq == t_der) {
         return t_izq;
@@ -162,9 +167,11 @@ void imprimir_arbol_sintactico(NodoArbol *raiz, const std::string &etiqueta, int
     if (raiz->simbolo) {
         out << " [TS: " << raiz->simbolo->lexema << "]";
     }
-    if (raiz->tipo_dato == Tipo::DOUBLEF) {
+    if (raiz->tipo.clase) {
+        out << " (tipo: " << raiz->tipo.clase->lexema << ")";
+    } else if (raiz->tipo.t == Tipo::DOUBLEF) {
         out << " (tipo: doublef)";
-    } else if (raiz->tipo_dato == Tipo::USHORTINT) {
+    } else if (raiz->tipo.t == Tipo::USHORTINT) {
         out << " (tipo: ushortint)";
     }
 
@@ -215,8 +222,13 @@ static void exportar_dot_recursivo(NodoArbol *nodo, std::ostream &out, int &cont
     if (nodo->simbolo) {
         label += "\\n(TS: " + nodo->simbolo->lexema + ")";
     }
-    if (nodo->tipo_dato == Tipo::DOUBLEF) label += "\\n[doublef]";
-    if (nodo->tipo_dato == Tipo::USHORTINT) label += "\\n[ushortint]";
+    if (nodo->tipo.clase) {
+        label += "\\n[" + nodo->tipo.clase->lexema + "]";
+    } else if (nodo->tipo.t == Tipo::DOUBLEF) {
+        label += "\\n[doublef]";
+    } else if (nodo->tipo.t == Tipo::USHORTINT) {
+        label += "\\n[ushortint]";
+    }
 
     out << "  node" << id_actual << " [label=\"" << label << "\"];\n";
 

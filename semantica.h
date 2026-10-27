@@ -25,6 +25,7 @@ void sem_destruir_cabecera_funcion();
 void sem_abrir_clase(EntradaTS *id);
 void sem_cerrar_clase();
 void sem_destruir_cabecera_clase();
+void sem_declarar_atributo(EntradaTS *id, const InfoTipo &tipo);
 void sem_abrir_metodo(EntradaTS *id, const InfoTipo &tipo);
 void sem_cerrar_metodo(NodoArbol *cuerpo);
 void sem_extends();

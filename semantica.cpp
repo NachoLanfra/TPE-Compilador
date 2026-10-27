@@ -84,7 +84,7 @@ void sem_declarar_programa(EntradaTS *id) {
 void sem_abrir_funcion(EntradaTS *id, const InfoTipo &tipo) {
     EntradaTS *f = declarar(id, Uso::FUNCION, tipo);
     f->tiene_ret = false;
-    f->params.clear();
+    f->params_formales.clear();
     funciones_abiertas.push_back(f);
     pila_ambitos.push_back(id->lexema);
 }
@@ -127,12 +127,22 @@ void sem_destruir_cabecera_clase() {
     pila_ambitos.pop_back();
 }
 
+void sem_declarar_atributo(EntradaTS *id, const InfoTipo &tipo) {
+    EntradaTS *atr = declarar(id, Uso::ATRIBUTO, tipo);
+    if (atr && !clases_abiertas.empty()) {
+        clases_abiertas.back()->atributos.push_back(atr);
+    }
+}
+
 void sem_abrir_metodo(EntradaTS *id, const InfoTipo &tipo) {
     EntradaTS *m = declarar(id, Uso::METODO, tipo);
     m->tiene_ret = false;
-    m->params.clear();
+    m->params_formales.clear();
     funciones_abiertas.push_back(m);
     pila_ambitos.push_back(id->lexema);
+    if (!clases_abiertas.empty()) {
+        clases_abiertas.back()->metodos.push_back(m);
+    }
 }
 
 void sem_cerrar_metodo(NodoArbol *cuerpo) {
@@ -174,9 +184,9 @@ void sem_typedef(EntradaTS *id) {
 }
 
 void sem_agregar_param_formal(EntradaTS *id, const InfoTipo &tipo) {
-    declarar(id, Uso::PARAMETRO, tipo);
+    EntradaTS *p = declarar(id, Uso::PARAMETRO, tipo);
     if (!funciones_abiertas.empty()) {
-        funciones_abiertas.back()->params.push_back(tipo.t);
+        funciones_abiertas.back()->params_formales.push_back(p);
     }
 }
 
@@ -271,7 +281,7 @@ NodoArbol* sem_asignacion(EntradaTS *id, NodoArbol *exp) {
     EntradaTS *res = resolver_valor(id);
     NodoArbol *hoja_id = crear_hoja(res);
     // Tema 35: Asignación entero a flotante se convierte el lado derecho
-    if (hoja_id && exp && hoja_id->tipo_dato == Tipo::DOUBLEF && exp->tipo_dato == Tipo::USHORTINT) {
+    if (hoja_id && exp && hoja_id->tipo.t == Tipo::DOUBLEF && exp->tipo.t == Tipo::USHORTINT) {
         exp = crear_nodo_conversion(exp, Tipo::DOUBLEF);
     }
     std::cout << "Asignacion (linea " << LINEA_ACTUAL << ")" << std::endl;
@@ -283,7 +293,7 @@ NodoArbol* sem_asignacion_expr(EntradaTS *id, NodoArbol *exp) {
     EntradaTS *res_id = resolver_valor(id);
     NodoArbol *hoja_id = crear_hoja(res_id);
     // Tema 35: Si el destino es doublef y la expresión es ushortint, convertir implícitamente
-    if (hoja_id && exp && hoja_id->tipo_dato == Tipo::DOUBLEF && exp->tipo_dato == Tipo::USHORTINT) {
+    if (hoja_id && exp && hoja_id->tipo.t == Tipo::DOUBLEF && exp->tipo.t == Tipo::USHORTINT) {
         exp = crear_nodo_conversion(exp, Tipo::DOUBLEF);
     }
     return crear_nodo_asignacion("=", hoja_id, exp);
@@ -329,7 +339,7 @@ NodoArbol* sem_pout_exp(NodoArbol *exp) {
 NodoArbol* sem_op_binaria(const std::string &op, NodoArbol *izq, NodoArbol *der) {
     Tipo res = aplicar_conversion_implicita(izq, der);
     NodoArbol *nodo = crear_nodo(op, izq, der, TipoNodo::OPERADOR);
-    nodo->tipo_dato = res;
+    nodo->tipo = { res, nullptr };
     return nodo;
 }
 

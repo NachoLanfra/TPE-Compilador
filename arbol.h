@@ -26,7 +26,7 @@ struct NodoArbol {
     std::string valor;              // Etiqueta del nodo: "+", ":=", "=", "IF", "REPEAT_WHILE", etc.
     TipoNodo tipo_nodo;             // Categoría del nodo
     EntradaTS *simbolo;             // Puntero a la entrada en la TS (si aplica)
-    Tipo tipo_dato;                 // USHORTINT, DOUBLEF, NINGUNO
+    InfoTipo tipo;                  // Información de tipo (ushortint, doublef, clase, typedef)
     
     NodoArbol *izq;                 // Hijo izquierdo (operando 1, condición, objeto, etc.)
     NodoArbol *der;                 // Hijo derecho (operando 2, cuerpo, atributo/índice, etc.)
@@ -41,7 +41,7 @@ extern std::unordered_map<std::string, NodoArbol*> arboles_funciones;
 
 // Constructores de nodos generales
 NodoArbol* crear_hoja(EntradaTS *simbolo);
-NodoArbol* crear_hoja_valor(const std::string &valor, Tipo tipo_dato = Tipo::NINGUNO);
+NodoArbol* crear_hoja_valor(const std::string &valor, InfoTipo tipo = { Tipo::NINGUNO, nullptr });
 NodoArbol* crear_nodo(const std::string &valor, NodoArbol *izq, NodoArbol *der = nullptr, TipoNodo tipo_nodo = TipoNodo::OPERADOR);
 NodoArbol* crear_nodo_control(const std::string &valor, NodoArbol *izq, NodoArbol *der = nullptr);
 

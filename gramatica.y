@@ -193,7 +193,7 @@ cabecera_metodo
 clase_item
     : tipo ID ';'
       {
-          declarar($2, Uso::ATRIBUTO, $1);
+          sem_declarar_atributo($2, $1);
       }
     | cabecera_metodo '(' lista_params_formales ')' sent_decl_lista PR_BEGIN sent_ejec_lista PR_END ';'
       {
