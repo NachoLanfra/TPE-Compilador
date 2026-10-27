@@ -746,8 +746,8 @@ lista_constantes
     ;
 
 acceso_objeto
-    : ID '.' ID llamada_opcional { $$ = resolver_funcion($1); }
-    | ID '[' indice ']' { $$ = resolver_funcion($1); }
+    : ID '.' ID llamada_opcional { $$ = resolver_objeto($1); }
+    | ID '[' indice ']' { $$ = resolver_objeto($1); }
     ;
 
 llamada_opcional
