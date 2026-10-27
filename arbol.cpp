@@ -1,4 +1,5 @@
 #include "arbol.h"
+#include "semantica.h"
 #include <iomanip>
 
 // Estructuras globales
@@ -11,13 +12,7 @@ NodoArbol* crear_hoja(EntradaTS *simbolo) {
     nodo->valor = simbolo->lexema;
     nodo->tipo_nodo = TipoNodo::HOJA;
     nodo->simbolo = simbolo;
-    nodo->tipo = { simbolo->tipo, nullptr };
-    if (!simbolo->tipo_nombre.empty()) {
-        auto it = tabla_simbolos.find(simbolo->tipo_nombre);
-        if (it != tabla_simbolos.end()) {
-            nodo->tipo.clase = &(it->second);
-        }
-    }
+    nodo->tipo = info_de(simbolo);
     nodo->izq = nullptr;
     nodo->der = nullptr;
     return nodo;
@@ -87,7 +82,7 @@ NodoArbol* crear_nodo_llamada(EntradaTS *funcion, const std::vector<NodoArbol*> 
     nodo->valor = funcion ? funcion->lexema : "CALL";
     nodo->tipo_nodo = TipoNodo::LLAMADA;
     nodo->simbolo = funcion;
-    nodo->tipo = { funcion ? funcion->tipo : Tipo::NINGUNO, nullptr };
+    nodo->tipo = funcion ? info_de(funcion) : InfoTipo{Tipo::NINGUNO, nullptr};
     nodo->izq = nullptr;
     nodo->der = nullptr;
     nodo->params = params;
@@ -119,31 +114,6 @@ NodoArbol* crear_nodo_conversion(NodoArbol *nodo_origen, Tipo tipo_destino) {
     NodoArbol *nodo = crear_nodo(etiqueta, nodo_origen, nullptr, TipoNodo::CONVERSION);
     nodo->tipo = { tipo_destino, nullptr };
     return nodo;
-}
-
-// Helper para insertar la conversión implícita binaria automáticamente
-Tipo aplicar_conversion_implicita(NodoArbol *&izq, NodoArbol *&der) {
-    if (!izq || !der) return Tipo::NINGUNO;
-
-    Tipo t_izq = izq->tipo.t;
-    Tipo t_der = der->tipo.t;
-
-    if (t_izq == t_der) {
-        return t_izq;
-    }
-
-    // Entero (USHORTINT) + Flotante (DOUBLEF) -> Se convierte entero a flotante
-    if (t_izq == Tipo::USHORTINT && t_der == Tipo::DOUBLEF) {
-        izq = crear_nodo_conversion(izq, Tipo::DOUBLEF);
-        return Tipo::DOUBLEF;
-    }
-
-    if (t_izq == Tipo::DOUBLEF && t_der == Tipo::USHORTINT) {
-        der = crear_nodo_conversion(der, Tipo::DOUBLEF);
-        return Tipo::DOUBLEF;
-    }
-
-    return Tipo::NINGUNO;
 }
 
 void registrar_arbol_funcion(const std::string &nombre_funcion, NodoArbol *raiz) {

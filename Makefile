@@ -1,10 +1,13 @@
 all: y.tab.c
-	g++ y.tab.c main.cpp arbol.cpp semantica.cpp -o compilador
+	g++ y.tab.c main.cpp arbol.cpp semantica.cpp errores.cpp -o compilador
 
 y.tab.c: gramatica.y
 	bison -dy -Wno-yacc gramatica.y
 
-test: test-lexico test-sintaxis test-eof
+test: test-semantica test-lexico test-sintaxis test-eof
+
+test-semantica:
+	g++ -I. test/test_semantica.cpp arbol.cpp semantica.cpp errores.cpp -o /tmp/test_sem && /tmp/test_sem
 
 test-lexico: all
 	./compilador test/test_lexico_completo.txt

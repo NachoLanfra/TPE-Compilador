@@ -1,4 +1,5 @@
 #include "semantica.h"
+#include "errores.h"
 #include <iostream>
 
 const InfoTipo SIN_TIPO = { Tipo::NINGUNO, nullptr };
@@ -14,6 +15,10 @@ static std::vector<std::string> valores_pendientes;
 static std::vector<std::vector<NodoArbol*>> pila_params_reales;
 static std::vector<std::vector<int>> pila_orden_eval;
 
+static void error_sem(const std::string &msg) {
+    registrar_error("semantico", LINEA_ACTUAL, msg);
+}
+
 std::string ambito_actual() {
     std::string r;
     for (size_t i = 0; i < pila_ambitos.size(); i++) {
@@ -26,6 +31,145 @@ std::string ambito_actual() {
 std::string nombre_base(const EntradaTS *e) {
     if (!e) return "";
     return e->lexema.substr(0, e->lexema.find(':'));
+}
+
+// clase = la clase o el typedef de un símbolo (nullptr si es ushortint/doublef)
+InfoTipo info_de(const EntradaTS *e) {
+    if (!e) return SIN_TIPO;
+    EntradaTS *c = nullptr;
+    if (!e->tipo_nombre.empty()) {
+        auto it = tabla_simbolos.find(e->tipo_nombre);
+        if (it != tabla_simbolos.end()) c = &it->second;
+    }
+    return { e->tipo, c };
+}
+
+std::string nombre_tipo(const InfoTipo &t) {
+    if (t.clase) return nombre_base(t.clase);
+    switch (t.t) {
+        case Tipo::USHORTINT: return "ushortint";
+        case Tipo::DOUBLEF:   return "doublef";
+        default:              return "desconocido";
+    }
+}
+
+// ---------- clasificación de tipos ----------
+// "roto" = el error ya se informó antes (ej. tipo no declarado): se propaga en silencio
+static bool es_roto(const InfoTipo &t)    { return t.t == Tipo::NINGUNO && t.clase == nullptr; }
+static bool es_numerico(const InfoTipo &t){ return t.clase == nullptr && (t.t == Tipo::USHORTINT || t.t == Tipo::DOUBLEF); }
+static bool es_clase(const InfoTipo &t)   { return t.clase && t.clase->uso == Uso::CLASE; }
+static bool es_enum(const InfoTipo &t)    { return t.clase && t.clase->uso == Uso::TYPEDEF; }
+
+// ---------- Tema 25: misma cantidad de atributos propios, mismo tipo y mismo orden ----------
+static bool misma_estructura(const EntradaTS *c1, const EntradaTS *c2) {
+    if (c1 == c2) return true;
+    if (c1->atributos.size() != c2->atributos.size()) return false;
+    for (size_t i = 0; i < c1->atributos.size(); i++) {
+        const EntradaTS *a = c1->atributos[i], *b = c2->atributos[i];
+        if (a->tipo != b->tipo || a->tipo_nombre != b->tipo_nombre) return false;
+    }
+    return true;
+}
+
+// ---------- Tema 23: pertenencia de una constante a un enumerado ----------
+static bool lexema_entero(const std::string &lx) { return lx.find('$') != std::string::npos; }
+
+static double valor_de(const std::string &lx) {            // "12$us" -> 12 ; "1.5d+3" -> 1500
+    if (lexema_entero(lx)) return std::stod(lx.substr(0, lx.find('$')));
+    std::string s = lx;
+    size_t p = s.find('d');
+    if (p != std::string::npos) s[p] = 'e';
+    p = s.find('D');
+    if (p != std::string::npos) s[p] = 'E';
+    return std::stod(s);
+}
+
+static bool valor_en_enum(const EntradaTS *constante, const EntradaTS *typedef_) {
+    bool es_int = lexema_entero(constante->lexema);
+    double v = valor_de(constante->lexema);
+    for (const std::string &lx : typedef_->valores)
+        if (lexema_entero(lx) == es_int && valor_de(lx) == v) return true;
+    return false;
+}
+
+// ---------- Tema 35 (+ 23 y 25): compatibilidad origen -> destino ----------
+// Si hace falta, envuelve 'origen' en una conversión. Sirve para asignaciones,
+// parámetros y ret: cambia solo el 'contexto' del mensaje.
+bool adaptar_a_tipo(const InfoTipo &dest, NodoArbol *&orig, const std::string &ctx) {
+    if (!orig || es_roto(dest) || es_roto(orig->tipo)) return false;   // error ya informado
+    const InfoTipo o = orig->tipo;
+    const std::string incompat = "Incompatibilidad de tipos en " + ctx + ": no se puede usar un valor de tipo '"
+                               + nombre_tipo(o) + "' donde se espera '" + nombre_tipo(dest) + "'";
+
+    if (es_enum(dest)) {
+        if (es_clase(o)) { error_sem(incompat); return false; }
+        if (es_enum(o)) {
+            if (o.clase != dest.clase) { error_sem(incompat); return false; }
+            return true;
+        }
+        // numérico: solo se puede verificar si es una constante
+        if (orig->tipo_nodo == TipoNodo::HOJA && orig->simbolo && orig->simbolo->uso == Uso::CONSTANTE
+            && !valor_en_enum(orig->simbolo, dest.clase)) {
+            error_sem("el valor '" + orig->simbolo->lexema + "' no pertenece al enumerado '"
+                      + nombre_base(dest.clase) + "' (" + ctx + ")");
+            return false;
+        }
+        return true;   // variable o expresión: se posterga a la etapa siguiente
+    }
+
+    if (es_clase(dest)) {
+        if (!es_clase(o) || !misma_estructura(dest.clase, o.clase)) {
+            error_sem(incompat + (es_clase(o) ? " (distinta estructura)" : ""));
+            return false;
+        }
+        return true;
+    }
+
+    if (!es_numerico(dest) || !es_numerico(o)) { error_sem(incompat); return false; }
+    if (dest.t == o.t) return true;
+    if (dest.t == Tipo::DOUBLEF && o.t == Tipo::USHORTINT) {            // entero -> flotante: implícita
+        orig = crear_nodo_conversion(orig, Tipo::DOUBLEF);
+        return true;
+    }
+    error_sem(incompat);                                                 // flotante -> entero: error
+    return false;
+}
+
+bool adaptar_asignacion(const NodoArbol *dest, NodoArbol *&orig) {
+    if (!dest) return false;
+    return adaptar_a_tipo(dest->tipo, orig, "la asignacion");
+}
+
+bool verificar_param(const EntradaTS *formal, NodoArbol *&real) {
+    return adaptar_a_tipo(info_de(formal), real, "el parametro '" + nombre_base(formal) + "'");
+}
+
+// ---------- operaciones aritméticas y comparaciones ----------
+static bool es_comparador(const std::string &op) {
+    return op == "==" || op == "!=" || op == "<=" || op == ">=" || op == "<" || op == ">";
+}
+
+NodoArbol* operar(const std::string &op, NodoArbol *izq, NodoArbol *der) {
+    if (!izq || !der) return nullptr;
+    const InfoTipo ti = izq->tipo, td = der->tipo;
+    if (es_roto(ti) || es_roto(td)) return nullptr;                      // error ya informado
+
+    if (!es_numerico(ti) || !es_numerico(td)) {
+        const InfoTipo &malo = es_numerico(ti) ? td : ti;
+        error_sem("un operando de tipo '" + nombre_tipo(malo) + "' no se puede usar con el operador '" + op + "'");
+        return nullptr;
+    }
+
+    Tipo res = ti.t;
+    if (ti.t != td.t) {                                                  // uno entero y otro flotante
+        res = Tipo::DOUBLEF;
+        if (ti.t == Tipo::USHORTINT) izq = crear_nodo_conversion(izq, Tipo::DOUBLEF);
+        else                         der = crear_nodo_conversion(der, Tipo::DOUBLEF);
+    }
+
+    NodoArbol *n = crear_nodo(op, izq, der, TipoNodo::OPERADOR);
+    n->tipo = es_comparador(op) ? InfoTipo{ Tipo::NINGUNO, nullptr } : InfoTipo{ res, nullptr };
+    return n;
 }
 
 std::string valor_por_defecto(Tipo tipo) {
@@ -284,10 +428,7 @@ EntradaTS* resolver_objeto(EntradaTS *raw) {
 NodoArbol* sem_asignacion(EntradaTS *id, NodoArbol *exp) {
     EntradaTS *res = resolver_valor(id);
     NodoArbol *hoja_id = crear_hoja(res);
-    // Tema 35: Asignación entero a flotante se convierte el lado derecho
-    if (hoja_id && exp && hoja_id->tipo.t == Tipo::DOUBLEF && exp->tipo.t == Tipo::USHORTINT) {
-        exp = crear_nodo_conversion(exp, Tipo::DOUBLEF);
-    }
+    adaptar_asignacion(hoja_id, exp);
     #ifdef DEBUG
     std::cout << "Asignacion (linea " << LINEA_ACTUAL << ")" << std::endl;
     #endif
@@ -298,10 +439,7 @@ NodoArbol* sem_asignacion(EntradaTS *id, NodoArbol *exp) {
 NodoArbol* sem_asignacion_expr(EntradaTS *id, NodoArbol *exp) {
     EntradaTS *res_id = resolver_valor(id);
     NodoArbol *hoja_id = crear_hoja(res_id);
-    // Tema 35: Si el destino es doublef y la expresión es ushortint, convertir implícitamente
-    if (hoja_id && exp && hoja_id->tipo.t == Tipo::DOUBLEF && exp->tipo.t == Tipo::USHORTINT) {
-        exp = crear_nodo_conversion(exp, Tipo::DOUBLEF);
-    }
+    adaptar_asignacion(hoja_id, exp);
     return crear_nodo_asignacion("=", hoja_id, exp);
 }
 
@@ -310,6 +448,7 @@ NodoArbol* sem_asignacion_atributo(EntradaTS *id_obj, EntradaTS *id_atr, NodoArb
     NodoArbol *obj = crear_hoja(res_obj);
     NodoArbol *atr = crear_hoja(id_atr);
     NodoArbol *acceso = crear_nodo_acceso(obj, atr);
+    adaptar_asignacion(acceso, exp);
     #ifdef DEBUG
     std::cout << "Asignacion de atributo (linea " << LINEA_ACTUAL << ")" << std::endl;
     #endif
@@ -321,6 +460,7 @@ NodoArbol* sem_asignacion_posicional(EntradaTS *id_obj, NodoArbol *indice, NodoA
     EntradaTS *res_obj = resolver_objeto(id_obj);
     NodoArbol *obj = crear_hoja(res_obj);
     NodoArbol *acceso_pos = crear_nodo_acceso_posicional(obj, indice);
+    adaptar_asignacion(acceso_pos, exp);
     #ifdef DEBUG
     std::cout << "Asignacion posicional de atributo (linea " << LINEA_ACTUAL << ")" << std::endl;
     #endif
@@ -330,6 +470,7 @@ NodoArbol* sem_asignacion_posicional(EntradaTS *id_obj, NodoArbol *indice, NodoA
 NodoArbol* sem_retorno(NodoArbol *exp) {
     if (!funciones_abiertas.empty()) {
         funciones_abiertas.back()->tiene_ret = true;
+        adaptar_a_tipo(info_de(funciones_abiertas.back()), exp, "la sentencia 'ret'");
     }
     #ifdef DEBUG
     std::cout << "Sentencia RET (linea " << LINEA_ACTUAL << ")" << std::endl;
@@ -353,15 +494,11 @@ NodoArbol* sem_pout_exp(NodoArbol *exp) {
 
 // Operaciones binarias con conversiones implícitas (Tema 35)
 NodoArbol* sem_op_binaria(const std::string &op, NodoArbol *izq, NodoArbol *der) {
-    Tipo res = aplicar_conversion_implicita(izq, der);
-    NodoArbol *nodo = crear_nodo(op, izq, der, TipoNodo::OPERADOR);
-    nodo->tipo = { res, nullptr };
-    return nodo;
+    return operar(op, izq, der);
 }
 
 NodoArbol* sem_condicion(const char *op, NodoArbol *izq, NodoArbol *der) {
-    aplicar_conversion_implicita(izq, der);
-    return crear_nodo(op, izq, der, TipoNodo::OPERADOR);
+    return operar(op, izq, der);
 }
 
 NodoArbol* sem_factor_id(EntradaTS *id) {
@@ -431,6 +568,17 @@ NodoArbol* sem_invocacion(EntradaTS *id) {
     pila_orden_eval.pop_back();
 
     EntradaTS *f = resolver_funcion(id);
+    if (f) {
+        if (args.size() != f->params_formales.size()) {
+            error_sem("cantidad incorrecta de parametros en la invocacion a '" + nombre_base(f)
+                      + "': se esperaban " + std::to_string(f->params_formales.size())
+                      + ", se recibieron " + std::to_string(args.size()));
+        } else {
+            for (size_t i = 0; i < args.size(); i++) {
+                verificar_param(f->params_formales[i], args[i]);
+            }
+        }
+    }
     return crear_nodo_llamada(f, args, ord);
 }
 
@@ -455,4 +603,3 @@ NodoArbol* sem_acceso_posicional(EntradaTS *id_obj, NodoArbol *indice) {
 void sem_llamada_opcional_pop() {
     if (!pila_params_reales.empty()) pila_params_reales.pop_back();
 }
-

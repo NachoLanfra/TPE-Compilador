@@ -13,8 +13,16 @@ extern const InfoTipo SIN_TIPO;
 
 std::string ambito_actual();
 std::string nombre_base(const EntradaTS *e);
+InfoTipo    info_de(const EntradaTS *e);       // tipo de un símbolo (con su clase o typedef)
+std::string nombre_tipo(const InfoTipo &t);
 std::string valor_por_defecto(Tipo tipo);
 const char* nombre_uso(Uso u);
+
+// Tema 35. Devuelven nullptr / false si hay error (ya informado)
+NodoArbol* operar(const std::string &op, NodoArbol *izq, NodoArbol *der);
+bool adaptar_a_tipo(const InfoTipo &destino, NodoArbol *&origen, const std::string &contexto);
+bool adaptar_asignacion(const NodoArbol *destino, NodoArbol *&origen);
+bool verificar_param(const EntradaTS *formal, NodoArbol *&real);
 
 EntradaTS* declarar(EntradaTS *raw, Uso uso, const InfoTipo &t);
 void sem_declarar_variables(const InfoTipo &tipo);

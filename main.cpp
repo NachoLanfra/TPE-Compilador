@@ -45,14 +45,6 @@ const std::unordered_map<std::string, int> tabla_referencias = {
 // (EntradaTS ahora está definido en main.h, porque el %union del parser también lo necesita
 std::unordered_map<std::string, EntradaTS> tabla_simbolos;
 
-std::vector<std::string> errores;
-
-void error(const std::string &etapa, int linea, const std::string &msg) {
-    std::string m = msg;
-    if (m.rfind("Error: ", 0) == 0) m = m.substr(7);
-    errores.push_back("Linea " + std::to_string(linea) + ": Error " + etapa + ": " + m);
-}
-
 // Tabla de operadores
 const std::unordered_map<std::string, int> tabla_operadores = {
     {":=", OP_ASIGNACION},

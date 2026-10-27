@@ -73,11 +73,6 @@ NodoArbol* crear_nodo_acceso(NodoArbol *objeto, NodoArbol *miembro);
 // Tema 35: Conversiones Implícitas (Entero -> Flotante)
 NodoArbol* crear_nodo_conversion(NodoArbol *nodo_origen, Tipo tipo_destino = Tipo::DOUBLEF);
 
-// Auxiliar para aplicar conversión implícita binaria según Tema 35:
-// Si uno es USHORTINT y el otro DOUBLEF, inserta CONV_DOUBLEF en el entero.
-// Retorna el tipo resultante o Tipo::NINGUNO si hay incompatibilidad insalvable.
-Tipo aplicar_conversion_implicita(NodoArbol *&izq, NodoArbol *&der);
-
 // Gestión de árboles por función y programa principal
 void registrar_arbol_funcion(const std::string &nombre_funcion, NodoArbol *raiz);
 void registrar_arbol_programa(NodoArbol *raiz);
