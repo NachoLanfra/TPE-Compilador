@@ -7,6 +7,7 @@
 #include <string> // Manejo de strings
 
 #include "main.h"    // EntradaTS, tabla_simbolos, LINEA_ACTUAL, archivo (declaraciones compartidas)
+#include "arbol.h"   // AST (Árbol Sintáctico)
 #include "y.tab.h"   // ID, CTE_INT, PR_IF, etc. 
 
 // Constantes para las matrices del autómata
@@ -527,6 +528,8 @@ int main(int argc, char* argv[]) {
 
     if (resultado == 0) {
         std::cout << ">>> El programa termino." << std::endl;
+        imprimir_todos_los_arboles();
+        graficar_arbol(arbol_programa_principal, "arbol.dot");
     } else {
         std::cout << ">>> El programa no se pudo recuperar del error." << std::endl;
     }
@@ -545,6 +548,8 @@ int main(int argc, char* argv[]) {
         }
     }
     std::cout << "-----------------------------------------" << std::endl;
+
+    liberar_todos_los_arboles();
 
     archivo.close();
     return 0;
