@@ -52,22 +52,20 @@ prog
     : nombre_prog sent_decl_lista PR_BEGIN sent_ejec_lista PR_END ';'
       {
           registrar_arbol_programa($4);
+          #ifdef DEBUG
           std::cout << "Se reconocio un programa" << std::endl;
+          #endif
       }
     | nombre_prog sent_decl_lista error sent_ejec_lista PR_END ';'
       {
           registrar_arbol_programa($4);
-          std::cerr << "Linea " << LINEA_ACTUAL
-                    << ": Error: falta 'begin' o esta mal formada la seccion declarativa del programa."
-                    << std::endl;
+          error("Sintactico", LINEA_ACTUAL, "falta 'begin' o esta mal formada la seccion declarativa del programa");
           yyerrok;
       }
     | nombre_prog sent_decl_lista PR_BEGIN sent_ejec_lista PR_END error
       {
           registrar_arbol_programa($4);
-      	  std::cerr << "Linea " << LINEA_ACTUAL
-      	            << ": Error: falta ';' despues del 'end' del programa."
-      	            << std::endl;
+          error("Sintactico", LINEA_ACTUAL, "falta ';' despues del 'end' del programa");
       	  yyerrok;
       }
     ;
@@ -84,10 +82,7 @@ sent_decl_lista
       {
           sem_limpiar_ids_pendientes();
           sem_limpiar_valores_pendientes();
-          std::cerr << "Linea " << LINEA_ACTUAL
-                    << ": Error: sentencia declarativa mal formada. "
-                    << "Se descartan tokens hasta ';'."
-                    << std::endl;
+          error("Sintactico", LINEA_ACTUAL, "sentencia declarativa mal formada. Se descartan tokens hasta ';'");
           yyerrok;
       }
     |
@@ -119,9 +114,7 @@ decl_variables
     | tipo error ';'
       {
           sem_limpiar_ids_pendientes();
-          std::cerr << "Linea " << LINEA_ACTUAL
-                    << ": Error: declaracion de variables mal formada."
-                    << std::endl;
+          error("Sintactico", LINEA_ACTUAL, "declaracion de variables mal formada");
           yyerrok;
       }
     ;
@@ -147,9 +140,7 @@ decl_funcion
     | cabecera_funcion error PR_END ';'
       {
           sem_destruir_cabecera_funcion();
-          std::cerr << "Linea " << LINEA_ACTUAL
-                    << ": Error: declaracion de funcion mal formada."
-                    << std::endl;
+          error("Sintactico", LINEA_ACTUAL, "declaracion de funcion mal formada");
           yyerrok;
       }
     ;
@@ -170,9 +161,7 @@ decl_clase
     | cabecera_clase error PR_END ';'
       {
           sem_destruir_cabecera_clase();
-          std::cerr << "Linea " << LINEA_ACTUAL
-                    << ": Error: declaracion de clase mal formada."
-                    << std::endl;
+          error("Sintactico", LINEA_ACTUAL, "declaracion de clase mal formada");
           yyerrok;
       }
     ;
@@ -202,9 +191,7 @@ clase_item
     | extends_clause
     | tipo error ';'
       {
-          std::cerr << "Linea " << LINEA_ACTUAL
-                    << ": Error: declaracion de atributo o metodo mal formada."
-                    << std::endl;
+          error("Sintactico", LINEA_ACTUAL, "declaracion de atributo o metodo mal formada");
           yyerrok;
       }
     ;
@@ -217,9 +204,7 @@ extends_clause
     | PR_EXTENDS error ';'
       {
           sem_limpiar_ids_pendientes();
-          std::cerr << "Linea " << LINEA_ACTUAL
-                    << ": Error: clausula 'extends' mal formada."
-                    << std::endl;
+          error("Sintactico", LINEA_ACTUAL, "clausula 'extends' mal formada");
           yyerrok;
       }
     ;
@@ -232,9 +217,7 @@ decl_typedef
     | PR_TYPEDEF error ';'
       {
           sem_limpiar_valores_pendientes();
-          std::cerr << "Linea " << LINEA_ACTUAL
-                    << ": Error: declaracion de typedef mal formada."
-                    << std::endl;
+          error("Sintactico", LINEA_ACTUAL, "declaracion de typedef mal formada");
           yyerrok;
       }
     ;
@@ -251,10 +234,7 @@ sent_ejec_lista
     | sent_ejec_lista error ';'
       {
           $$ = $1;
-          std::cerr << "Linea " << LINEA_ACTUAL
-                    << ": Error: sentencia ejecutable mal formada. "
-                    << "Se descartan tokens hasta ';'."
-                    << std::endl;
+          error("Sintactico", LINEA_ACTUAL, "sentencia ejecutable mal formada. Se descartan tokens hasta ';'");
           yyerrok;
       }
     | { $$ = nullptr; }
@@ -278,9 +258,7 @@ asignacion
     | ID error ';'
       {
           $$ = nullptr;
-          std::cerr << "Linea " << LINEA_ACTUAL
-                    << ": Error: asignacion mal formada."
-                    << std::endl;
+          error("Sintactico", LINEA_ACTUAL, "asignacion mal formada");
           yyerrok;
       }
     ;
@@ -297,17 +275,13 @@ asignacion_atributo
     | ID '.' ID error ';'
       {
           $$ = nullptr;
-          std::cerr << "Linea " << LINEA_ACTUAL
-                    << ": Error: asignacion de atributo mal formada."
-                    << std::endl;
+          error("Sintactico", LINEA_ACTUAL, "asignacion de atributo mal formada");
           yyerrok;
       }
     | ID '[' error ';'
       {
           $$ = nullptr;
-          std::cerr << "Linea " << LINEA_ACTUAL
-                    << ": Error: asignacion posicional mal formada."
-                    << std::endl;
+          error("Sintactico", LINEA_ACTUAL, "asignacion posicional mal formada");
           yyerrok;
       }
     ;
@@ -325,9 +299,7 @@ retorno
     | PR_RET error ';'
       {
           $$ = nullptr;
-          std::cerr << "Linea " << LINEA_ACTUAL
-                    << ": Error: sentencia 'ret' mal formada."
-                    << std::endl;
+          error("Sintactico", LINEA_ACTUAL, "sentencia 'ret' mal formada");
           yyerrok;
       }
     ;
@@ -344,9 +316,7 @@ pout
     | PR_POUT error ';'
       {
           $$ = nullptr;
-          std::cerr << "Linea " << LINEA_ACTUAL
-                    << ": Error: sentencia 'pout' mal formada."
-                    << std::endl;
+          error("Sintactico", LINEA_ACTUAL, "sentencia 'pout' mal formada");
           yyerrok;
       }
     ;
@@ -376,19 +346,21 @@ seleccion
     : PR_IF '(' condicion ')' bloque_sent_ejec PR_END_IF ';'
       {
           $$ = crear_nodo_if($3, $5, nullptr);
+          #ifdef DEBUG
           std::cout << "Sentencia IF (linea " << LINEA_ACTUAL << ")" << std::endl;
+          #endif
       }
     | PR_IF '(' condicion ')' bloque_sent_ejec PR_ELSE bloque_sent_ejec PR_END_IF ';'
       {
           $$ = crear_nodo_if($3, $5, $7);
+          #ifdef DEBUG
           std::cout << "Sentencia IF-ELSE (linea " << LINEA_ACTUAL << ")" << std::endl;
+          #endif
       }
     | PR_IF error ';'
       {
           $$ = nullptr;
-          std::cerr << "Linea " << LINEA_ACTUAL
-                    << ": Error: sentencia 'if' mal formada, incompleta, o le falta 'end_if'."
-                    << std::endl;
+          error("Sintactico", LINEA_ACTUAL, "sentencia 'if' mal formada, incompleta, o le falta 'end_if'");
           yyerrok;
       }
     ;
@@ -397,14 +369,14 @@ repeat_while
     : PR_REPEAT bloque_sent_ejec PR_WHILE '(' condicion ')' ';'
       {
           $$ = crear_nodo_repeat_while($2, $5);
+          #ifdef DEBUG
           std::cout << "Sentencia REPEAT-WHILE (linea " << LINEA_ACTUAL << ")" << std::endl;
+          #endif
       }
     | PR_REPEAT error ';'
       {
           $$ = nullptr;
-          std::cerr << "Linea " << LINEA_ACTUAL
-                    << ": Error: sentencia 'repeat-while' mal formada."
-                    << std::endl;
+          error("Sintactico", LINEA_ACTUAL, "sentencia 'repeat-while' mal formada");
           yyerrok;
       }
     ;
@@ -468,9 +440,7 @@ invocacion
       {
           sem_invocacion_error();
           $$ = nullptr;
-          std::cerr << "Linea " << LINEA_ACTUAL
-                    << ": Error: invocacion a funcion mal formada."
-                    << std::endl;
+          error("Sintactico", LINEA_ACTUAL, "invocacion a funcion mal formada");
           yyerrok;
       }
     ;
@@ -485,9 +455,7 @@ lista_ctes_opcional
     | '[' error ']'
       {
           sem_invocacion_orden_vacio();
-          std::cerr << "Linea " << LINEA_ACTUAL
-                    << ": Error: lista de orden de evaluacion mal formada."
-                    << std::endl;
+          error("Sintactico", LINEA_ACTUAL, "lista de orden de evaluacion mal formada");
           yyerrok;
       }
     |
@@ -515,10 +483,7 @@ llamada_opcional
 
 void yyerror(const char *s) {
 	if (std::string(s).find("unexpected end of file") != std::string::npos)
-		std::cerr << "Linea " << LINEA_ACTUAL
-		          << ": Error: fin de archivo inesperado. Verificar que el programa termine con "
-		          << "'end;' y que no haya sentencias o bloques sin cerrar"
-		          << std::endl;
+		error("Sintactico", LINEA_ACTUAL, "fin de archivo inesperado. Verificar que el programa termine con 'end;' y que no haya sentencias o bloques sin cerrar");
 	else
-    	std::cerr << "Linea " << LINEA_ACTUAL << ": Error: " << s << std::endl;
+    	error("Sintactico", LINEA_ACTUAL, s);
 }

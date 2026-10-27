@@ -58,8 +58,7 @@ EntradaTS* declarar(EntradaTS *raw, Uso uso, const InfoTipo &t) {
     std::string clave = raw->lexema + ":" + ambito_actual();
     auto it = tabla_simbolos.find(clave);
     if (it != tabla_simbolos.end()) {
-        std::cerr << "Linea " << LINEA_ACTUAL << ": Error: '" << raw->lexema
-                  << "' ya fue declarado en el ambito " << ambito_actual() << std::endl;
+        error("Semantico", LINEA_ACTUAL, "'" + raw->lexema + "' ya fue declarado en el ambito " + ambito_actual());
         return &(it->second);
     }
     EntradaTS e;
@@ -74,7 +73,9 @@ EntradaTS* declarar(EntradaTS *raw, Uso uso, const InfoTipo &t) {
 void sem_declarar_variables(const InfoTipo &tipo) {
     for (EntradaTS *id : ids_pendientes) declarar(id, Uso::VARIABLE, tipo);
     ids_pendientes.clear();
+    #ifdef DEBUG
     std::cout << "Declaracion de variables (linea " << LINEA_ACTUAL << ")" << std::endl;
+    #endif
 }
 
 void sem_declarar_programa(EntradaTS *id) {
@@ -95,6 +96,7 @@ void sem_cerrar_funcion(NodoArbol *cuerpo) {
     funciones_abiertas.pop_back();
     pila_ambitos.pop_back();
 
+    #ifdef DEBUG
     if (!func->tiene_ret) {
         std::cout << "Linea " << LINEA_ACTUAL
                   << ": Aviso: la funcion '" << nombre_base(func)
@@ -102,6 +104,7 @@ void sem_cerrar_funcion(NodoArbol *cuerpo) {
                   << valor_por_defecto(func->tipo) << ")." << std::endl;
     }
     std::cout << "Declaracion de funcion (linea " << LINEA_ACTUAL << ")" << std::endl;
+    #endif
 }
 
 void sem_destruir_cabecera_funcion() {
@@ -119,7 +122,9 @@ void sem_abrir_clase(EntradaTS *id) {
 void sem_cerrar_clase() {
     clases_abiertas.pop_back();
     pila_ambitos.pop_back();
+    #ifdef DEBUG
     std::cout << "Declaracion de clase (linea " << LINEA_ACTUAL << ")" << std::endl;
+    #endif
 }
 
 void sem_destruir_cabecera_clase() {
@@ -151,12 +156,14 @@ void sem_cerrar_metodo(NodoArbol *cuerpo) {
     funciones_abiertas.pop_back();
     pila_ambitos.pop_back();
 
+    #ifdef DEBUG
     if (!metodo->tiene_ret) {
         std::cout << "Linea " << LINEA_ACTUAL
                   << ": Aviso: el metodo '" << nombre_base(metodo)
                   << "' no tiene sentencia 'ret'. Se asume valor de retorno por defecto ("
                   << valor_por_defecto(metodo->tipo) << ")." << std::endl;
     }
+    #endif
 }
 
 void sem_extends() {
@@ -164,23 +171,25 @@ void sem_extends() {
         EntradaTS *padre = resolver(id);
         if (!padre || clases_abiertas.empty()) continue;
         if (padre->uso != Uso::CLASE)
-            std::cerr << "Linea " << LINEA_ACTUAL << ": Error: '" << id->lexema << "' es "
-                      << nombre_uso(padre->uso) << " y se usa como clase en 'extends'" << std::endl;
+            error("Semantico", LINEA_ACTUAL, "'" + id->lexema + "' es " + nombre_uso(padre->uso) + " y se usa como clase en 'extends'");
         else if (padre == clases_abiertas.back())
-            std::cerr << "Linea " << LINEA_ACTUAL << ": Error: la clase '" << id->lexema
-                      << "' no puede heredar de si misma" << std::endl;
+            error("Semantico", LINEA_ACTUAL, "la clase '" + id->lexema + "' no puede heredar de si misma");
         else
             clases_abiertas.back()->padres.push_back(padre->lexema);
     }
     ids_pendientes.clear();
+    #ifdef DEBUG
     std::cout << "Clausula EXTENDS (linea " << LINEA_ACTUAL << ")" << std::endl;
+    #endif
 }
 
 void sem_typedef(EntradaTS *id) {
     EntradaTS *t = declarar(id, Uso::TYPEDEF, SIN_TIPO);
     t->valores = valores_pendientes;
     valores_pendientes.clear();
+    #ifdef DEBUG
     std::cout << "Declaracion de typedef (linea " << LINEA_ACTUAL << ")" << std::endl;
+    #endif
 }
 
 void sem_agregar_param_formal(EntradaTS *id, const InfoTipo &tipo) {
@@ -224,16 +233,14 @@ EntradaTS* resolver(EntradaTS *raw) {
     if (!raw) return nullptr;
     EntradaTS *e = buscar(raw->lexema);
     if (!e)
-        std::cerr << "Linea " << LINEA_ACTUAL << ": Error: '" << raw->lexema
-                  << "' no esta declarado o no es visible en el ambito " << ambito_actual() << std::endl;
+        error("Semantico", LINEA_ACTUAL, "'" + raw->lexema + "' no esta declarado o no es visible en el ambito " + ambito_actual());
     return e;
 }
 
 EntradaTS* resolver_valor(EntradaTS *raw) {
     EntradaTS *e = resolver(raw);
     if (e && e->uso != Uso::VARIABLE && e->uso != Uso::PARAMETRO && e->uso != Uso::ATRIBUTO) {
-        std::cerr << "Linea " << LINEA_ACTUAL << ": Error: '" << raw->lexema << "' es "
-                  << nombre_uso(e->uso) << " y se usa como variable" << std::endl;
+        error("Semantico", LINEA_ACTUAL, "'" + raw->lexema + "' es " + nombre_uso(e->uso) + " y se usa como variable");
         return nullptr;
     }
     return e;
@@ -242,8 +249,7 @@ EntradaTS* resolver_valor(EntradaTS *raw) {
 EntradaTS* resolver_funcion(EntradaTS *raw) {
     EntradaTS *e = resolver(raw);
     if (e && e->uso != Uso::FUNCION && e->uso != Uso::METODO) {
-        std::cerr << "Linea " << LINEA_ACTUAL << ": Error: '" << raw->lexema << "' es "
-                  << nombre_uso(e->uso) << " y se usa como funcion" << std::endl;
+        error("Semantico", LINEA_ACTUAL, "'" + raw->lexema + "' es " + nombre_uso(e->uso) + " y se usa como funcion");
         return nullptr;
     }
     return e;
@@ -252,8 +258,7 @@ EntradaTS* resolver_funcion(EntradaTS *raw) {
 EntradaTS* resolver_tipo(EntradaTS *raw) {
     EntradaTS *e = resolver(raw);
     if (e && e->uso != Uso::CLASE && e->uso != Uso::TYPEDEF) {
-        std::cerr << "Linea " << LINEA_ACTUAL << ": Error: '" << raw->lexema << "' es "
-                  << nombre_uso(e->uso) << " y se usa como tipo" << std::endl;
+        error("Semantico", LINEA_ACTUAL, "'" + raw->lexema + "' es " + nombre_uso(e->uso) + " y se usa como tipo");
         return nullptr;
     }
     return e;
@@ -269,8 +274,7 @@ EntradaTS* resolver_objeto(EntradaTS *raw) {
     }
     bool tipo_roto = (e->tipo == Tipo::NINGUNO && e->tipo_nombre.empty());
     if (!es_objeto && !tipo_roto) {
-        std::cerr << "Linea " << LINEA_ACTUAL << ": Error: '" << raw->lexema
-                  << "' no es un objeto de una clase y no admite acceso a miembros" << std::endl;
+        error("Semantico", LINEA_ACTUAL, "'" + raw->lexema + "' no es un objeto de una clase y no admite acceso a miembros");
         return nullptr;
     }
     return e;
@@ -284,7 +288,9 @@ NodoArbol* sem_asignacion(EntradaTS *id, NodoArbol *exp) {
     if (hoja_id && exp && hoja_id->tipo.t == Tipo::DOUBLEF && exp->tipo.t == Tipo::USHORTINT) {
         exp = crear_nodo_conversion(exp, Tipo::DOUBLEF);
     }
+    #ifdef DEBUG
     std::cout << "Asignacion (linea " << LINEA_ACTUAL << ")" << std::endl;
+    #endif
     return crear_nodo_asignacion(":=", hoja_id, exp);
 }
 
@@ -304,7 +310,9 @@ NodoArbol* sem_asignacion_atributo(EntradaTS *id_obj, EntradaTS *id_atr, NodoArb
     NodoArbol *obj = crear_hoja(res_obj);
     NodoArbol *atr = crear_hoja(id_atr);
     NodoArbol *acceso = crear_nodo_acceso(obj, atr);
+    #ifdef DEBUG
     std::cout << "Asignacion de atributo (linea " << LINEA_ACTUAL << ")" << std::endl;
+    #endif
     return crear_nodo_asignacion(":=", acceso, exp);
 }
 
@@ -313,7 +321,9 @@ NodoArbol* sem_asignacion_posicional(EntradaTS *id_obj, NodoArbol *indice, NodoA
     EntradaTS *res_obj = resolver_objeto(id_obj);
     NodoArbol *obj = crear_hoja(res_obj);
     NodoArbol *acceso_pos = crear_nodo_acceso_posicional(obj, indice);
+    #ifdef DEBUG
     std::cout << "Asignacion posicional de atributo (linea " << LINEA_ACTUAL << ")" << std::endl;
+    #endif
     return crear_nodo_asignacion(":=", acceso_pos, exp);
 }
 
@@ -321,17 +331,23 @@ NodoArbol* sem_retorno(NodoArbol *exp) {
     if (!funciones_abiertas.empty()) {
         funciones_abiertas.back()->tiene_ret = true;
     }
+    #ifdef DEBUG
     std::cout << "Sentencia RET (linea " << LINEA_ACTUAL << ")" << std::endl;
+    #endif
     return crear_nodo("ret", exp, nullptr, TipoNodo::RETORNO);
 }
 
 NodoArbol* sem_pout_str(EntradaTS *cte_str) {
+    #ifdef DEBUG
     std::cout << "Sentencia POUT (linea " << LINEA_ACTUAL << ")" << std::endl;
+    #endif
     return crear_nodo("pout", crear_hoja(cte_str), nullptr, TipoNodo::SALIDA);
 }
 
 NodoArbol* sem_pout_exp(NodoArbol *exp) {
+    #ifdef DEBUG
     std::cout << "Sentencia POUT (linea " << LINEA_ACTUAL << ")" << std::endl;
+    #endif
     return crear_nodo("pout", exp, nullptr, TipoNodo::SALIDA);
 }
 
@@ -357,11 +373,7 @@ NodoArbol* sem_factor_cte(EntradaTS *cte) {
 }
 
 NodoArbol* sem_factor_cte_neg_int(EntradaTS *cte) {
-    std::cerr << "Linea " << LINEA_ACTUAL
-              << ": Error semantico: la constante '"
-              << cte->lexema
-              << "' es de tipo USHORTINT (sin signo), no admite el signo '-'."
-              << std::endl;
+    error("Semantico", LINEA_ACTUAL, "la constante '" + cte->lexema + "' es de tipo USHORTINT (sin signo), no admite el signo '-'");
     return crear_hoja(cte);
 }
 

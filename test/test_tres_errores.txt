@@ -1,0 +1,23 @@
+prog_prueba_errores
+
+ushortint a;
+
+doublef function mi_funcion(ushortint x)
+begin
+    ret(x);
+end;
+
+begin
+    {{ 1. Error lexico: constante ushortint fuera de rango }}
+    a := 300$us;
+
+    {{ 2. Error sintactico: asignacion mal formada }}
+    a := ;
+
+    {{ 3. Error semantico: variable no declarada }}
+    variable_inexistente := 10$us;
+
+    {{ 4. Error semantico: funcion usada como variable a la izquierda de asignacion }}
+    mi_funcion := 20$us;
+end;
+

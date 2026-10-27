@@ -45,6 +45,14 @@ const std::unordered_map<std::string, int> tabla_referencias = {
 // (EntradaTS ahora está definido en main.h, porque el %union del parser también lo necesita
 std::unordered_map<std::string, EntradaTS> tabla_simbolos;
 
+std::vector<std::string> errores;
+
+void error(const std::string &etapa, int linea, const std::string &msg) {
+    std::string m = msg;
+    if (m.rfind("Error: ", 0) == 0) m = m.substr(7);
+    errores.push_back("Linea " + std::to_string(linea) + ": Error " + etapa + ": " + m);
+}
+
 // Tabla de operadores
 const std::unordered_map<std::string, int> tabla_operadores = {
     {":=", OP_ASIGNACION},
@@ -234,15 +242,12 @@ bool a_val_int(const std::string& cadena) {
         std::string num_str = cadena.substr(0, pos); // Extrae la parte antes del '$'
         int valor = std::stoi(num_str);
         if (valor < 0 || valor > 255) { // Verifica si está fuera del rango
-            std::cerr << "Error Léxico en línea " << LINEA_ACTUAL
-            << ": Entero fuera de rango (0-255): "
-            << valor << std::endl;
+            error("Lexico", LINEA_ACTUAL, "Entero fuera de rango (0-255): " + std::to_string(valor));
             return false; 
         }
         return true; 
     } catch (const std::exception& e) {
-        std::cerr << "Error Léxico en línea " << LINEA_ACTUAL
-        << ": Error convirtiendo a entero: " << cadena << std::endl;
+        error("Lexico", LINEA_ACTUAL, "Error convirtiendo a entero: " + cadena);
         return false;
     }
 }
@@ -268,20 +273,16 @@ bool a_val_float(std::string& cadena) {
         double abs_valor = std::fabs(valor);
 
         if (abs_valor != 0.0 && (abs_valor < MIN_NORMAL || abs_valor > MAX_NORMAL)) { // Verifica si está fuera del rango de 64 bits
-            std::cerr << "Error Léxico en línea " << LINEA_ACTUAL
-        << ": Flotante fuera de rango de 64 bits: "
-        << cadena << std::endl;
+            error("Lexico", LINEA_ACTUAL, "Flotante fuera de rango de 64 bits: " + cadena);
             return false;
         }
         return true; 
     
     } catch (const std::out_of_range& e) { 
-        std::cerr << "Error Léxico en línea " << LINEA_ACTUAL
-        << ": Flotante fuera de rango de 64 bits: " << cadena << std::endl;
+        error("Lexico", LINEA_ACTUAL, "Flotante fuera de rango de 64 bits: " + cadena);
         return false;
     } catch (...) {
-        std::cerr << "Error Léxico en línea " << LINEA_ACTUAL
-        << ": Error desconocido al convertir flotante: " << cadena << std::endl;
+        error("Lexico", LINEA_ACTUAL, "Error desconocido al convertir flotante: " + cadena);
         return false;
     }
 }
@@ -310,7 +311,7 @@ int a_tpr(const std::string& lexema) {
 
 void a_error(char c) {
     // Funcion que imprime el error lexico y la linea en la que se encuentra
-    std::cerr << "Error Léxico en línea " << LINEA_ACTUAL << " con: " << c << std::endl;
+    error("Lexico", LINEA_ACTUAL, std::string("caracter no reconocido: '") + c + "'");
 }
 
 int yylex() { 
@@ -329,7 +330,9 @@ int yylex() {
         } else if (accion == A_NL) {
             a_nl(); // Suma 1 a la variable global
         }else if (accion == A_COM) { // Se ejecuta cuando se cierra un comentario multilinea
+            #ifdef DEBUG
             std::cout << "-> Info: Comentario multilineas cerrado e ignorado exitosamente." << std::endl;
+            #endif
         }
         
         estado_actual = matriz_estados[estado_actual][columna]; 
@@ -345,7 +348,9 @@ int yylex() {
                     if (token == ID) {
                         yylval.ts_ref = a_ts(lexema_actual);
                     }
-                    //std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual << std::endl;
+                    #ifdef DEBUG
+                    std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual << std::endl;
+                    #endif
                     return token;
                 }
                 case A_PR: {
@@ -355,12 +360,14 @@ int yylex() {
                     a_lower(lexema_actual);
                     int token = a_tpr(lexema_actual);
                     if (token == ID) { 
-                        std::cerr << "Error Léxico en línea " << LINEA_ACTUAL << ": identificador con mayúscula(s) no permitido: '" << lexema_original << "'" << std::endl;
+                        error("Lexico", LINEA_ACTUAL, "identificador con mayúscula(s) no permitido: '" + lexema_original + "'");
                         lexema_actual = ""; // error, no encuentra la palabra reservada y como tenia mayusculas no es un ID valido, entonces descarta el lexema
                         estado_actual = 0;
                         continue; 
                     }
-                    //std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual << std::endl;
+                    #ifdef DEBUG
+                    std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual << std::endl;
+                    #endif
                     return token;
                 }
                     
@@ -373,7 +380,9 @@ int yylex() {
                         continue; // Lo descarta y sigue leyendo
                     }
                     yylval.ts_ref = a_ts(lexema_actual);
-                    //std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual << std::endl;
+                    #ifdef DEBUG
+                    std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual << std::endl;
+                    #endif
                     yylval.ts_ref->tipo = Tipo::USHORTINT; yylval.ts_ref->uso = Uso::CONSTANTE;
                     return CTE_INT;
                     
@@ -386,14 +395,18 @@ int yylex() {
                         continue; // Lo descarta y sigue leyendo
                     }
                     yylval.ts_ref = a_ts(lexema_actual);
-                    //std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual << std::endl;
+                    #ifdef DEBUG
+                    std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual << std::endl;
+                    #endif
                     yylval.ts_ref->tipo = Tipo::DOUBLEF; yylval.ts_ref->uso = Uso::CONSTANTE;
                     return CTE_FLOAT;
                     
                 case A_STR:
                     // Si es una cadena, lo agregamos a la tabla de simbolos y retornamos el token CTE_STR
                     yylval.ts_ref = a_ts(lexema_actual); 
-                    //std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual << std::endl;
+                    #ifdef DEBUG
+                    std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual << std::endl;
+                    #endif
                     yylval.ts_ref->uso = Uso::CADENA;
                     return CTE_STR;
                     
@@ -404,13 +417,17 @@ int yylex() {
                     if (it != tabla_operadores.end()) {
                         return it->second;
                     }
-                    //std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual[0] << std::endl;
+                    #ifdef DEBUG
+                    std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual[0] << std::endl;
+                    #endif
                     return lexema_actual[0];
                 }
                 case A_RTK:
                     // Devuelve el caracter extra leído al archivo y cierra el token simple (ej: '<').
                     a_retract(archivo); 
-                    //std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual[0] << std::endl;
+                    #ifdef DEBUG
+                    std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual[0] << std::endl;
+                    #endif
                     return lexema_actual[0]; 
                     
                 case A_NONE:
@@ -433,9 +450,7 @@ int yylex() {
     }
 
     if (estado_actual == 14 || estado_actual == 15 || estado_actual == 17) {
-        std::cerr << "Error Léxico en línea " << LINEA_ACTUAL
-        << ": comentario sin cerrar al final del archivo."
-        << std::endl;
+        error("Lexico", LINEA_ACTUAL, "comentario sin cerrar al final del archivo");
         return 0;
     }
 
@@ -449,7 +464,9 @@ int yylex() {
                 if (token == ID) {
                     yylval.ts_ref = a_ts(lexema_actual);
                 }
-                //std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual << std::endl;
+                #ifdef DEBUG
+                std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual << std::endl;
+                #endif
                 return token;
             }
             case A_PR: {
@@ -458,16 +475,20 @@ int yylex() {
                 a_lower(lexema_actual);
                 int token = a_tpr(lexema_actual);
                 if (token == ID) {
-                    //std::cerr << "Error Léxico en línea " << LINEA_ACTUAL << ": identificador con mayúscula(s) no permitido: '" << lexema_original << "'" << std::endl;
+                    error("Lexico", LINEA_ACTUAL, "identificador con mayúscula(s) no permitido: '" + lexema_original + "'");
                     lexema_actual = "";
                     return 0;
                 }
+                #ifdef DEBUG
                 std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual << std::endl;
+                #endif
                 return token;
             }
             case A_RTK:
                 // Si es un caracter especial, lo devolvemos directamente.
-                // std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual[0] << std::endl;
+                #ifdef DEBUG
+                std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual[0] << std::endl;
+                #endif
                 return lexema_actual[0];
             case A_FLT:
                 // Si es un flotante, lo agregamos a la tabla de simbolos y retornamos el token CTE_FLOAT
@@ -476,7 +497,9 @@ int yylex() {
                     return 0; 
                 }                
                 yylval.ts_ref = a_ts(lexema_actual);
-                // std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual << std::endl;
+                #ifdef DEBUG
+                std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual << std::endl;
+                #endif
                 yylval.ts_ref->tipo = Tipo::DOUBLEF; yylval.ts_ref->uso = Uso::CONSTANTE;
                 return CTE_FLOAT;
 
@@ -487,19 +510,17 @@ int yylex() {
                     return 0; 
                 }
                 yylval.ts_ref = a_ts(lexema_actual);
-                // std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual << std::endl;
+                #ifdef DEBUG
+                std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual << std::endl;
+                #endif
                 yylval.ts_ref->tipo = Tipo::USHORTINT; yylval.ts_ref->uso = Uso::CONSTANTE;
                 return CTE_INT;    
                     
             default: // Si es un lexema incompleto, imprimimos un mensaje de error y descartamos el lexema, ejemplo: cadena sin cerrar, etc.
                 if (estado_actual == 16) {
-                    std::cerr << "Error Léxico en línea " << LINEA_ACTUAL
-                    << ": cadena sin cerrar al final del archivo: '"
-                    << lexema_actual << "'" << std::endl;
+                    error("Lexico", LINEA_ACTUAL, "cadena sin cerrar al final del archivo: '" + lexema_actual + "'");
                 } else {
-                    std::cerr << "Error Léxico en línea " << LINEA_ACTUAL
-                    << ": fin de archivo inesperado, lexema incompleto descartado: '"
-                    << lexema_actual << "'" << std::endl;
+                    error("Lexico", LINEA_ACTUAL, "fin de archivo inesperado, lexema incompleto descartado: '" + lexema_actual + "'");
                 }
                 break;
         }
@@ -561,6 +582,17 @@ int main(int argc, char* argv[]) {
                       << "   [uso: " << USOS[(int)e.uso]
                       << ", tipo: " << (e.tipo_nombre.empty() ? TIPOS[(int)e.tipo] : e.tipo_nombre.c_str())
                       << "]" << std::endl;
+        }
+    }
+    std::cout << "-----------------------------------------" << std::endl;
+
+    // --- LISTA DE ERRORES CENTRALIZADA ---
+    std::cout << "\n--- LISTA DE ERRORES (" << errores.size() << ") ---" << std::endl;
+    if (errores.empty()) {
+        std::cout << "No se detectaron errores." << std::endl;
+    } else {
+        for (const auto &err : errores) {
+            std::cout << err << std::endl;
         }
     }
     std::cout << "-----------------------------------------" << std::endl;
