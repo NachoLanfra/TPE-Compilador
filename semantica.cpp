@@ -16,7 +16,7 @@ static std::vector<std::vector<NodoArbol*>> pila_params_reales;
 static std::vector<std::vector<int>> pila_orden_eval;
 
 static void error_sem(const std::string &msg) {
-    registrar_error("semantico", LINEA_ACTUAL, msg);
+    registrar_error("Semantico", LINEA_ACTUAL, msg);
 }
 
 std::string ambito_actual() {

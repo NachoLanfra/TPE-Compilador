@@ -45,5 +45,6 @@ extern std::ifstream archivo;
 extern std::vector<std::string> errores;
 void error(const std::string &etapa, int linea, const std::string &msg);
 void registrar_error(const std::string &etapa, int linea, const std::string &msg);
+void advertencia(const std::string &etapa, int linea, const std::string &msg);
 
 #endif

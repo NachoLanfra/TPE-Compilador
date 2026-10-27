@@ -11,6 +11,8 @@ void error(const std::string &etapa, int linea, const std::string &msg) {
 
 void registrar_error(const std::string &etapa, int linea, const std::string &msg) {
     error(etapa, linea, msg);
-    std::cerr << "Linea " << linea << ": Error " << etapa << ": " << msg << std::endl;
 }
 
+void advertencia(const std::string &etapa, int linea, const std::string &msg) {
+    errores.push_back("Linea " + std::to_string(linea) + ": Warning " + etapa + ": " + msg);
+}

@@ -215,9 +215,9 @@ void a_nl() {
 void a_trunc(std::string& cadena) {
     // Trunca la cadena si supera los 22 caracteres y emite un warning
     if (cadena.length() > 22) {
-        std::cerr << "Warning Léxico: El identificador '" << cadena << "' supera los 22 caracteres. Fue truncado." << std::endl;
+        advertencia("Lexico", LINEA_ACTUAL, "El identificador '" + cadena + "' supera los 22 caracteres. Fue truncado.");
         cadena = cadena.substr(0, 22);
-    }
+}
 }
 
 void a_lower(std::string& cadena) {
