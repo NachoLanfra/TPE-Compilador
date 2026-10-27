@@ -65,30 +65,96 @@ static EntradaTS* declarar(EntradaTS *raw, Uso uso, const InfoTipo &t) {
     return &(tabla_simbolos.insert({clave, e}).first->second);
 }
 
-// Resuelve un ID buscando desde el ámbito actual hacia los ámbitos padres
-static EntradaTS* resolver_valor(EntradaTS *raw) {
-    if (!raw) return nullptr;
-    std::string base = nombre_base(raw);
-
-    // Buscar desde el ámbito más anidado hasta el global (main)
-    for (int i = (int)pila_ambitos.size(); i >= 1; --i) {
-        std::string amb = "";
-        for (int j = 0; j < i; ++j) {
-            if (j > 0) amb += ":";
-            amb += pila_ambitos[j];
-        }
-        std::string clave = base + ":" + amb;
-        auto it = tabla_simbolos.find(clave);
-        if (it != tabla_simbolos.end()) {
-            return &(it->second);
-        }
+static const char* nombre_uso(Uso u) {
+    switch (u) {
+        case Uso::VARIABLE:  return "variable";
+        case Uso::PARAMETRO: return "parametro";
+        case Uso::FUNCION:   return "funcion";
+        case Uso::CLASE:     return "clase";
+        case Uso::ATRIBUTO:  return "atributo";
+        case Uso::METODO:    return "metodo";
+        case Uso::OBJETO:    return "objeto";
+        case Uso::TYPEDEF:   return "tipo definido (typedef)";
+        case Uso::PROGRAMA:  return "nombre de programa";
+        case Uso::CONSTANTE: return "constante";
+        case Uso::CADENA:    return "cadena";
+        default:             return "simbolo";
     }
+}
 
-    // Si no se encontró en la jerarquía léxica, buscar tal cual o retornar raw
-    auto it = tabla_simbolos.find(base + ":main");
-    if (it != tabla_simbolos.end()) return &(it->second);
+// Busca 'nombre' desde el ámbito actual hacia afuera: nombre:main:f:g, nombre:main:f, nombre:main
+static EntradaTS* buscar(const std::string &nombre) {
+    for (size_t n = pila_ambitos.size(); n > 0; n--) {
+        std::string amb;
+        for (size_t i = 0; i < n; i++) {
+            if (i) amb += ":";
+            amb += pila_ambitos[i];
+        }
+        auto it = tabla_simbolos.find(nombre + ":" + amb);
+        if (it != tabla_simbolos.end()) return &(it->second);
+    }
+    return nullptr;
+}
 
-    return raw;
+// Todo uso de un identificador pasa por acá. Devuelve nullptr (e informa) si no es visible.
+static EntradaTS* resolver(EntradaTS *raw) {
+    if (!raw) return nullptr;
+    EntradaTS *e = buscar(raw->lexema);
+    if (!e)
+        std::cerr << "Linea " << LINEA_ACTUAL << ": Error: '" << raw->lexema
+                  << "' no esta declarado o no es visible en el ambito " << ambito_actual() << std::endl;
+    return e;
+}
+
+// Identificador usado como variable (lado izquierdo de una asignación, operando, índice)
+static EntradaTS* resolver_valor(EntradaTS *raw) {
+    EntradaTS *e = resolver(raw);
+    if (e && e->uso != Uso::VARIABLE && e->uso != Uso::PARAMETRO && e->uso != Uso::ATRIBUTO) {
+        std::cerr << "Linea " << LINEA_ACTUAL << ": Error: '" << raw->lexema << "' es "
+                  << nombre_uso(e->uso) << " y se usa como variable" << std::endl;
+        return nullptr;
+    }
+    return e;
+}
+
+// Identificador usado como función o método (invocación)
+static EntradaTS* resolver_funcion(EntradaTS *raw) {
+    EntradaTS *e = resolver(raw);
+    if (e && e->uso != Uso::FUNCION && e->uso != Uso::METODO) {
+        std::cerr << "Linea " << LINEA_ACTUAL << ": Error: '" << raw->lexema << "' es "
+                  << nombre_uso(e->uso) << " y se usa como funcion" << std::endl;
+        return nullptr;
+    }
+    return e;
+}
+
+// Identificador usado como tipo (declaración de variables, parámetros, retornos)
+static EntradaTS* resolver_tipo(EntradaTS *raw) {
+    EntradaTS *e = resolver(raw);
+    if (e && e->uso != Uso::CLASE && e->uso != Uso::TYPEDEF) {
+        std::cerr << "Linea " << LINEA_ACTUAL << ": Error: '" << raw->lexema << "' es "
+                  << nombre_uso(e->uso) << " y se usa como tipo" << std::endl;
+        return nullptr;
+    }
+    return e;
+}
+
+// Identificador a la izquierda de '.' o '[' : tiene que ser una variable cuyo tipo sea una clase
+static EntradaTS* resolver_objeto(EntradaTS *raw) {
+    EntradaTS *e = resolver_valor(raw);
+    if (!e) return nullptr;
+    bool es_objeto = false;
+    if (!e->tipo_nombre.empty()) {
+        auto it = tabla_simbolos.find(e->tipo_nombre);
+        es_objeto = (it != tabla_simbolos.end() && it->second.uso == Uso::CLASE);
+    }
+    bool tipo_roto = (e->tipo == Tipo::NINGUNO && e->tipo_nombre.empty());  // ya se informó el error en su declaración
+    if (!es_objeto && !tipo_roto) {
+        std::cerr << "Linea " << LINEA_ACTUAL << ": Error: '" << raw->lexema
+                  << "' no es un objeto de una clase y no admite acceso a miembros" << std::endl;
+        return nullptr;
+    }
+    return e;
 }
 %}
 
@@ -128,12 +194,12 @@ static EntradaTS* resolver_valor(EntradaTS *raw) {
 %%
 
 prog
-    : ID sent_decl_lista PR_BEGIN sent_ejec_lista PR_END ';'
+    : nombre_prog sent_decl_lista PR_BEGIN sent_ejec_lista PR_END ';'
       {
           registrar_arbol_programa($4);
           std::cout << "Se reconocio un programa" << std::endl;
       }
-    | ID sent_decl_lista error sent_ejec_lista PR_END ';'
+    | nombre_prog sent_decl_lista error sent_ejec_lista PR_END ';'
       {
           registrar_arbol_programa($4);
           std::cerr << "Linea " << LINEA_ACTUAL
@@ -141,7 +207,7 @@ prog
                     << std::endl;
           yyerrok;
       }
-    | ID sent_decl_lista PR_BEGIN sent_ejec_lista PR_END error
+    | nombre_prog sent_decl_lista PR_BEGIN sent_ejec_lista PR_END error
       {
           registrar_arbol_programa($4);
       	  std::cerr << "Linea " << LINEA_ACTUAL
@@ -149,6 +215,10 @@ prog
       	            << std::endl;
       	  yyerrok;
       }
+    ;
+
+nombre_prog
+    : ID { declarar($1, Uso::PROGRAMA, SIN_TIPO); }
     ;
 
 /* ---------- sentencias declarativas ---------- */
@@ -178,7 +248,7 @@ sent_decl
 tipo
     : PR_USHORTINT { $$.t = Tipo::USHORTINT; $$.clase = nullptr; }
     | PR_DOUBLEF   { $$.t = Tipo::DOUBLEF;   $$.clase = nullptr; }
-    | ID           { $$.t = Tipo::NINGUNO;   $$.clase = $1; }   /* clase o typedef: se resuelve mas adelante */
+    | ID           { $$.t = Tipo::NINGUNO;   $$.clase = resolver_tipo($1); }   /* clase o typedef: debe estar declarado */
     ;
 
 lista_ids
@@ -340,8 +410,18 @@ clase_item
 extends_clause
     : PR_EXTENDS lista_ids ';'
       {
-          for (EntradaTS *id : ids_pendientes)
-              if (!clases_abiertas.empty()) clases_abiertas.back()->padres.push_back(id->lexema);
+          for (EntradaTS *id : ids_pendientes) {
+              EntradaTS *padre = resolver(id);
+              if (!padre || clases_abiertas.empty()) continue;
+              if (padre->uso != Uso::CLASE)
+                  std::cerr << "Linea " << LINEA_ACTUAL << ": Error: '" << id->lexema << "' es "
+                            << nombre_uso(padre->uso) << " y se usa como clase en 'extends'" << std::endl;
+              else if (padre == clases_abiertas.back())
+                  std::cerr << "Linea " << LINEA_ACTUAL << ": Error: la clase '" << id->lexema
+                            << "' no puede heredar de si misma" << std::endl;
+              else
+                  clases_abiertas.back()->padres.push_back(padre->lexema);
+          }
           ids_pendientes.clear();
           std::cout << "Clausula EXTENDS (linea "
                     << LINEA_ACTUAL << ")" << std::endl;
@@ -439,7 +519,7 @@ asignacion
 asignacion_atributo
     : ID '.' ID '=' expresion ';'
       {
-          EntradaTS *res_obj = resolver_valor($1);
+          EntradaTS *res_obj = resolver_objeto($1);
           NodoArbol *obj = crear_hoja(res_obj);
           NodoArbol *atr = crear_hoja($3);
           NodoArbol *acceso = crear_nodo_acceso(obj, atr);
@@ -449,7 +529,7 @@ asignacion_atributo
       }
     | ID '[' indice ']' '=' expresion ';'
       {
-          EntradaTS *res_obj = resolver_valor($1);
+          EntradaTS *res_obj = resolver_objeto($1);
           NodoArbol *obj = crear_hoja(res_obj);
           NodoArbol *acceso_pos = crear_nodo_acceso_posicional(obj, $3);
           $$ = crear_nodo_asignacion(":=", acceso_pos, $6);
@@ -806,7 +886,7 @@ invocacion
           std::vector<int> ord = pila_orden_eval.back();
           pila_orden_eval.pop_back();
 
-          EntradaTS *f = resolver_valor($1);
+          EntradaTS *f = resolver_funcion($1);
           $$ = crear_nodo_llamada(f, args, ord);
       }
     | ID '(' error ')' lista_ctes_opcional
@@ -874,14 +954,14 @@ lista_constantes
 acceso_objeto
     : ID '.' ID llamada_opcional
       {
-          EntradaTS *obj_ts = resolver_valor($1);
+          EntradaTS *obj_ts = resolver_objeto($1);
           NodoArbol *obj = crear_hoja(obj_ts);
           NodoArbol *atr = crear_hoja($3);
           $$ = crear_nodo_acceso(obj, atr);
       }
     | ID '[' indice ']'
       {
-          EntradaTS *obj_ts = resolver_valor($1);
+          EntradaTS *obj_ts = resolver_objeto($1);
           NodoArbol *obj = crear_hoja(obj_ts);
           $$ = crear_nodo_acceso_posicional(obj, $3);
       }
