@@ -236,17 +236,18 @@ void sem_abrir_funcion(EntradaTS *id, const InfoTipo &tipo) {
 
 void sem_cerrar_funcion(NodoArbol *cuerpo) {
     EntradaTS *func = funciones_abiertas.back();
+    if (!func->tiene_ret) {
+        // Crear nodo ret con valor por defecto y encadenarlo al final del árbol de sentencias
+        std::string def_val = valor_por_defecto(func->tipo);
+        InfoTipo it = { func->tipo, nullptr };
+        NodoArbol *hoja_def = crear_hoja_valor(def_val, it);
+        NodoArbol *nodo_ret_def = crear_nodo("ret", hoja_def, nullptr, TipoNodo::RETORNO);
+        cuerpo = cuerpo ? crear_nodo_sentencias(cuerpo, nodo_ret_def) : nodo_ret_def;
+    }
     registrar_arbol_funcion(func->lexema, cuerpo);
     funciones_abiertas.pop_back();
     pila_ambitos.pop_back();
-
     #ifdef DEBUG
-    if (!func->tiene_ret) {
-        std::cout << "Linea " << LINEA_ACTUAL
-                  << ": Aviso: la funcion '" << nombre_base(func)
-                  << "' no tiene sentencia 'ret'. Se asume valor de retorno por defecto ("
-                  << valor_por_defecto(func->tipo) << ")." << std::endl;
-    }
     std::cout << "Declaracion de funcion (linea " << LINEA_ACTUAL << ")" << std::endl;
     #endif
 }
@@ -295,18 +296,20 @@ void sem_abrir_metodo(EntradaTS *id, const InfoTipo &tipo) {
 }
 
 void sem_cerrar_metodo(NodoArbol *cuerpo) {
-    EntradaTS *metodo = funciones_abiertas.back();
-    registrar_arbol_funcion(metodo->lexema, cuerpo);
+    EntradaTS *func = funciones_abiertas.back();
+    if (!func->tiene_ret) {
+        // Crear nodo ret con valor por defecto y encadenarlo al final del árbol de sentencias
+        std::string def_val = valor_por_defecto(func->tipo);
+        InfoTipo it = { func->tipo, nullptr };
+        NodoArbol *hoja_def = crear_hoja_valor(def_val, it);
+        NodoArbol *nodo_ret_def = crear_nodo("ret", hoja_def, nullptr, TipoNodo::RETORNO);
+        cuerpo = cuerpo ? crear_nodo_sentencias(cuerpo, nodo_ret_def) : nodo_ret_def;
+    }
+    registrar_arbol_funcion(func->lexema, cuerpo);
     funciones_abiertas.pop_back();
     pila_ambitos.pop_back();
-
     #ifdef DEBUG
-    if (!metodo->tiene_ret) {
-        std::cout << "Linea " << LINEA_ACTUAL
-                  << ": Aviso: el metodo '" << nombre_base(metodo)
-                  << "' no tiene sentencia 'ret'. Se asume valor de retorno por defecto ("
-                  << valor_por_defecto(metodo->tipo) << ")." << std::endl;
-    }
+    std::cout << "Declaracion de funcion (linea " << LINEA_ACTUAL << ")" << std::endl;
     #endif
 }
 
@@ -468,10 +471,12 @@ NodoArbol* sem_asignacion_posicional(EntradaTS *id_obj, NodoArbol *indice, NodoA
 }
 
 NodoArbol* sem_retorno(NodoArbol *exp) {
-    if (!funciones_abiertas.empty()) {
-        funciones_abiertas.back()->tiene_ret = true;
-        adaptar_a_tipo(info_de(funciones_abiertas.back()), exp, "la sentencia 'ret'");
+    if (funciones_abiertas.empty()) {
+        error("Semantico", LINEA_ACTUAL, "la sentencia 'ret' solo puede utilizarse dentro de una funcion o metodo");
+        return nullptr;
     }
+    funciones_abiertas.back()->tiene_ret = true;
+    adaptar_a_tipo(info_de(funciones_abiertas.back()), exp, "la sentencia 'ret'");
     #ifdef DEBUG
     std::cout << "Sentencia RET (linea " << LINEA_ACTUAL << ")" << std::endl;
     #endif
