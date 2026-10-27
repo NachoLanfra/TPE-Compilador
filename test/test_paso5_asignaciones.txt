@@ -1,0 +1,11 @@
+prog_asignaciones
+ushortint a, b, c;
+doublef z, x, y;
+begin
+    a := 5$us;
+    b := 10$us;
+    z := a + b;
+    c := a = (b + 1$us);
+    z := x = (1.5 + 2.0);
+    a := x + y;
+end;
