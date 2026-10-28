@@ -470,13 +470,9 @@ lista_constantes
     ;
 
 acceso_objeto
-    : ID '.' ID llamada_opcional   { $$ = sem_acceso_atributo($1, $3); }
-    | ID '[' indice ']'            { $$ = sem_acceso_posicional($1, $3); }
-    ;
-
-llamada_opcional
-    : '(' lista_params_reales ')'  { sem_llamada_opcional_pop(); }
-    |
+    : ID '.' ID                              { $$ = sem_acceso_atributo($1, $3); }
+    | ID '.' ID '(' lista_params_reales ')'  { $$ = sem_acceso_metodo($1, $3); }
+    | ID '[' indice ']'                      { $$ = sem_acceso_posicional($1, $3); }
     ;
 
 %%

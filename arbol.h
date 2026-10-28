@@ -37,7 +37,7 @@ struct NodoArbol {
 };
 
 extern NodoArbol *arbol_programa_principal;
-extern std::unordered_map<std::string, NodoArbol*> arboles_funciones;
+extern std::vector<std::pair<std::string, NodoArbol*>> arboles_funciones;
 
 // Constructores de nodos generales
 NodoArbol* crear_hoja(EntradaTS *simbolo);
@@ -65,7 +65,7 @@ NodoArbol* crear_nodo_if(NodoArbol *condicion, NodoArbol *bloque_then, NodoArbol
 NodoArbol* crear_nodo_llamada(EntradaTS *funcion, const std::vector<NodoArbol*> &params, const std::vector<int> &orden_eval = {});
 
 // Tema 29: Acceso posicional a atributos: obj[pos]
-NodoArbol* crear_nodo_acceso_posicional(NodoArbol *objeto, NodoArbol *indice_pos);
+NodoArbol* crear_nodo_acceso_posicional(NodoArbol *objeto, NodoArbol *indice_pos, InfoTipo tipo_resultado);
 
 // Acceso tradicional a atributos / métodos: obj.miembro (para Tema 28 / 30)
 NodoArbol* crear_nodo_acceso(NodoArbol *objeto, NodoArbol *miembro);

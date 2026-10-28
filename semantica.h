@@ -88,7 +88,7 @@ void sem_invocacion_error();
 // Accesos
 NodoArbol* sem_acceso_atributo(EntradaTS *id_obj, EntradaTS *id_atr);
 NodoArbol* sem_acceso_posicional(EntradaTS *id_obj, NodoArbol *indice);
-void sem_llamada_opcional_pop();
+NodoArbol* sem_acceso_metodo(EntradaTS *id_obj, EntradaTS *id_met);
 
 #endif // SEMANTICA_H
 

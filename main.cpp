@@ -303,7 +303,10 @@ int a_tpr(const std::string& lexema) {
 
 void a_error(char c) {
     // Funcion que imprime el error lexico y la linea en la que se encuentra
-    error("Lexico", LINEA_ACTUAL, std::string("caracter no reconocido: '") + c + "'");
+    if (c == '\n')
+        error("Lexico", LINEA_ACTUAL, "salto de linea inesperado: lexema incompleto descartado");
+    else
+        error("Lexico", LINEA_ACTUAL, std::string("caracter no reconocido: '") + c + "'");
 }
 
 int yylex() { 
@@ -327,6 +330,7 @@ int yylex() {
             #endif
         }
         
+        int estado_previo = estado_actual;
         estado_actual = matriz_estados[estado_actual][columna]; 
 
         if (estado_actual == ESTADO_FINAL) {
@@ -432,7 +436,10 @@ int yylex() {
         }
         else if (estado_actual == ESTADO_ERROR) {
             // Si el estado es de error, imprimimos el error, reiniciamos el estado y el lexema
-            a_error(c);
+            if (estado_previo == 16 && c == '\n')
+                error("Lexico", LINEA_ACTUAL, "cadena sin cerrar: no puede ocupar mas de una linea");
+            else
+                a_error(c);
             if (c == '\n') {
                 a_nl(); 
             }
@@ -565,15 +572,30 @@ int main(int argc, char* argv[]) {
     if (tabla_simbolos.empty()) {
         std::cout << "La tabla está vacía." << std::endl;
     } else {
-        static const char* USOS[]  = { "-", "variable", "parametro", "funcion", "clase", "atributo",
-                                       "metodo", "objeto", "typedef", "programa", "constante", "cadena" };
+        static const char* USOS[]  = { "-", "variable", "parametro", "funcion", "clase", "atributo", "metodo", "objeto", "typedef", "programa", "constante", "cadena" };
         static const char* TIPOS[] = { "-", "ushortint", "doublef" };
-        for (const auto& par : tabla_simbolos) {
+                for (const auto& par : tabla_simbolos) {
             const EntradaTS &e = par.second;
-            std::cout << " -> " << par.first
-                      << "   [uso: " << USOS[(int)e.uso]
-                      << ", tipo: " << (e.tipo_nombre.empty() ? TIPOS[(int)e.tipo] : e.tipo_nombre.c_str())
-                      << "]" << std::endl;
+            std::cout << " -> " << par.first << "   [uso: " << USOS[(int)e.uso] << ", tipo: " << (e.tipo_nombre.empty() ? TIPOS[(int)e.tipo] : e.tipo_nombre.c_str());
+            if (e.uso == Uso::FUNCION || e.uso == Uso::METODO) {
+                std::cout << ", parametros: (";
+                for (size_t i = 0; i < e.params_formales.size(); i++) {
+                    const EntradaTS *p = e.params_formales[i];
+                    if (i) std::cout << ", ";
+                    std::cout << (p->tipo_nombre.empty() ? TIPOS[(int)p->tipo] : p->tipo_nombre.c_str()) << " " << p->lexema;
+                }
+                std::cout << ")";
+            }
+            if (e.uso == Uso::CLASE && !e.padres.empty()) {
+                std::cout << ", hereda de: ";
+                for (size_t i = 0; i < e.padres.size(); i++) std::cout << (i ? ", " : "") << e.padres[i];
+            }
+            if (e.uso == Uso::TYPEDEF) {
+                std::cout << ", valores: [";
+                for (size_t i = 0; i < e.valores.size(); i++) std::cout << (i ? ", " : "") << e.valores[i];
+                std::cout << "]";
+            }
+            std::cout << "]" << std::endl;
         }
     }
     std::cout << "-----------------------------------------" << std::endl;

@@ -2,7 +2,7 @@ all: y.tab.c
 	g++ y.tab.c main.cpp arbol.cpp semantica.cpp errores.cpp -o compilador
 
 y.tab.c: gramatica.y
-	bison -dy -Wno-yacc gramatica.y
+	bison -dy -Wno-yacc -Wno-other gramatica.y
 
 test: test-semantica test-lexico test-sintaxis test-eof
 

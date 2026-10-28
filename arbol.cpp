@@ -4,7 +4,7 @@
 
 // Estructuras globales
 NodoArbol *arbol_programa_principal = nullptr;
-std::unordered_map<std::string, NodoArbol*> arboles_funciones;
+std::vector<std::pair<std::string, NodoArbol*>> arboles_funciones;
 
 NodoArbol* crear_hoja(EntradaTS *simbolo) {
     if (!simbolo) return nullptr;
@@ -91,11 +91,9 @@ NodoArbol* crear_nodo_llamada(EntradaTS *funcion, const std::vector<NodoArbol*> 
 }
 
 // Tema 29: Acceso posicional a atributo obj[pos]
-NodoArbol* crear_nodo_acceso_posicional(NodoArbol *objeto, NodoArbol *indice_pos) {
+NodoArbol* crear_nodo_acceso_posicional(NodoArbol *objeto, NodoArbol *indice_pos, InfoTipo tipo_resultado) {
     NodoArbol *nodo = crear_nodo("[]", objeto, indice_pos, TipoNodo::ACCESO_POS);
-    if (indice_pos && indice_pos->simbolo) {
-        nodo->tipo = indice_pos->tipo;
-    }
+    nodo->tipo = tipo_resultado;
     return nodo;
 }
 
@@ -117,7 +115,7 @@ NodoArbol* crear_nodo_conversion(NodoArbol *nodo_origen, Tipo tipo_destino) {
 }
 
 void registrar_arbol_funcion(const std::string &nombre_funcion, NodoArbol *raiz) {
-    arboles_funciones[nombre_funcion] = raiz;
+    arboles_funciones.push_back({ nombre_funcion, raiz });
 }
 
 void registrar_arbol_programa(NodoArbol *raiz) {
@@ -134,7 +132,7 @@ void imprimir_arbol_sintactico(NodoArbol *raiz, const std::string &etiqueta, int
 
     out << etiqueta << ": " << raiz->valor;
 
-    if (raiz->simbolo) {
+    if (raiz->simbolo && raiz->simbolo->lexema != raiz->valor) {
         out << " [TS: " << raiz->simbolo->lexema << "]";
     }
     if (raiz->tipo.clase) {
