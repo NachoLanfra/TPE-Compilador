@@ -123,50 +123,144 @@ void registrar_arbol_programa(NodoArbol *raiz) {
 }
 
 // Visualización
-void imprimir_arbol_sintactico(NodoArbol *raiz, const std::string &etiqueta, int nivel, std::ostream &out) {
-    if (!raiz) return;
+// Visualización del AST en formato de árbol
+static std::string obtener_etiqueta_nodo(const NodoArbol *nodo) {
+    std::string etiqueta = nodo->valor;
 
-    for (int i = 0; i < nivel; ++i) {
-        out << "  ";
+    if (nodo->tipo.clase) {
+        etiqueta += " [" + nodo->tipo.clase->lexema + "]";
+    } else if (nodo->tipo.t == Tipo::DOUBLEF) {
+        etiqueta += " [doublef]";
+    } else if (nodo->tipo.t == Tipo::USHORTINT) {
+        etiqueta += " [ushortint]";
     }
 
-    out << etiqueta << ": " << raiz->valor;
-
-    if (raiz->simbolo && raiz->simbolo->lexema != raiz->valor) {
-        out << " [TS: " << raiz->simbolo->lexema << "]";
-    }
-    if (raiz->tipo.clase) {
-        out << " (tipo: " << raiz->tipo.clase->lexema << ")";
-    } else if (raiz->tipo.t == Tipo::DOUBLEF) {
-        out << " (tipo: doublef)";
-    } else if (raiz->tipo.t == Tipo::USHORTINT) {
-        out << " (tipo: ushortint)";
-    }
-
-    // Para llamadas con orden de evaluación (Tema 20)
-    if (!raiz->orden_eval.empty()) {
-        out << " [orden eval: ";
-        for (size_t i = 0; i < raiz->orden_eval.size(); ++i) {
-            if (i > 0) out << ", ";
-            out << raiz->orden_eval[i];
+    if (!nodo->orden_eval.empty()) {
+        etiqueta += " {orden eval: ";
+        for (size_t i = 0; i < nodo->orden_eval.size(); ++i) {
+            if (i > 0) etiqueta += ", ";
+            etiqueta += std::to_string(nodo->orden_eval[i]);
         }
-        out << "]";
+        etiqueta += "}";
     }
 
-    out << "\n";
+    return etiqueta;
+}
 
-    if (raiz->izq) {
-        imprimir_arbol_sintactico(raiz->izq, "Hijo izquierdo", nivel + 1, out);
+// Aplana las listas de sentencias para evitar niveles repetidos.
+static void recopilar_sentencias(
+    NodoArbol *nodo,
+    std::vector<NodoArbol *> &sentencias
+) {
+    if (!nodo) return;
+
+    if (nodo->tipo_nodo == TipoNodo::SENTENCIAS) {
+        recopilar_sentencias(nodo->izq, sentencias);
+        recopilar_sentencias(nodo->der, sentencias);
+    } else {
+        sentencias.push_back(nodo);
     }
-    if (raiz->der) {
-        imprimir_arbol_sintactico(raiz->der, "Hijo derecho", nivel + 1, out);
+}
+
+static void imprimir_nodo_recursivo(
+    NodoArbol *nodo,
+    const std::string &prefijo,
+    bool ultimo,
+    const std::string &etiqueta,
+    std::ostream &out,
+    bool raiz = false
+) {
+    if (!nodo) return;
+
+    if (raiz) {
+        out << etiqueta << ": ";
+    } else {
+        out << prefijo << (ultimo ? "└── " : "├── ");
+        if (!etiqueta.empty()) {
+            out << etiqueta << ": ";
+        }
     }
 
-    // Parámetros de llamadas o listas de expresiones
-    for (size_t i = 0; i < raiz->params.size(); ++i) {
-        std::string etiqueta_param = "Parametro " + std::to_string(i + 1);
-        imprimir_arbol_sintactico(raiz->params[i], etiqueta_param, nivel + 1, out);
+    out << obtener_etiqueta_nodo(nodo) << '\n';
+
+    std::vector<std::pair<std::string, NodoArbol *>> hijos;
+
+    // Las listas de sentencias se muestran sin anidar
+    // un nodo "sentencias" por cada instrucción.
+    if (nodo->tipo_nodo == TipoNodo::SENTENCIAS) {
+        std::vector<NodoArbol *> sentencias;
+        recopilar_sentencias(nodo, sentencias);
+
+        for (NodoArbol *sentencia : sentencias) {
+            hijos.push_back({"", sentencia});
+        }
+    } else {
+        if (nodo->izq) {
+            if (nodo->izq->tipo_nodo == TipoNodo::SENTENCIAS) {
+                std::vector<NodoArbol *> sentencias;
+                recopilar_sentencias(nodo->izq, sentencias);
+
+                for (NodoArbol *sentencia : sentencias) {
+                    hijos.push_back({"", sentencia});
+                }
+            } else {
+                hijos.push_back({"", nodo->izq});
+            }
+        }
+
+        if (nodo->der) {
+            if (nodo->der->tipo_nodo == TipoNodo::SENTENCIAS) {
+                std::vector<NodoArbol *> sentencias;
+                recopilar_sentencias(nodo->der, sentencias);
+
+                for (NodoArbol *sentencia : sentencias) {
+                    hijos.push_back({"", sentencia});
+                }
+            } else {
+                hijos.push_back({"", nodo->der});
+            }
+        }
+
+        for (size_t i = 0; i < nodo->params.size(); ++i) {
+            hijos.push_back({
+                "Parametro " + std::to_string(i + 1),
+                nodo->params[i]
+            });
+        }
     }
+
+    std::string siguiente_prefijo = prefijo;
+    if (!raiz) {
+        siguiente_prefijo += ultimo ? "    " : "│   ";
+    }
+
+    for (size_t i = 0; i < hijos.size(); ++i) {
+        imprimir_nodo_recursivo(
+            hijos[i].second,
+            siguiente_prefijo,
+            i == hijos.size() - 1,
+            hijos[i].first,
+            out
+        );
+    }
+}
+
+void imprimir_arbol_sintactico(
+    NodoArbol *raiz,
+    const std::string &etiqueta,
+    int nivel,
+    std::ostream &out
+) {
+    (void)nivel;
+
+    imprimir_nodo_recursivo(
+        raiz,
+        "",
+        true,
+        etiqueta,
+        out,
+        true
+    );
 }
 
 void imprimir_todos_los_arboles(std::ostream &out) {
