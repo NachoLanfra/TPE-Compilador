@@ -1,8 +1,10 @@
 %define parse.error verbose
+
 %code requires {
 #include "main.h"
 #include "arbol.h"
 }
+
 %{
 #include <iostream>
 #include "main.h"
@@ -13,15 +15,17 @@ int yylex();
 void yyerror(const char *s);
 %}
 
+/* Mapeo de Tipos para la Pila Semántica del Parser (%union)*/
 %union {
-    EntradaTS *ts_ref;
-    InfoTipo info_tipo;
-    int marca_f;   // marcador de función/método abierto
-    int marca_c;   // marcador de clase abierta
-    NodoArbol *nodo;
-    const char *str_val;
+    EntradaTS *ts_ref;      /* Puntero a entrada en la Tabla de Símbolos */
+    InfoTipo info_tipo;     /* Tipo primitivo, clase o typedef */
+    int marca_f;            /* Marcador de apertura de ámbito de función */
+    int marca_c;            /* Marcador de apertura de ámbito de clase */
+    NodoArbol *nodo;        /* Puntero a nodo del Árbol Sintáctico (AST) */
+    const char *str_val;    /* Operador o comparador en texto plano */
 }
 
+/* Tokens de la gramática */
 %token <ts_ref> ID CTE_INT CTE_FLOAT CTE_STR
 %type <info_tipo> tipo
 %type <marca_f> cabecera_funcion cabecera_metodo
@@ -39,22 +43,23 @@ void yyerror(const char *s);
 %token PR_EXTENDS PR_TYPEDEF PR_REPEAT PR_WHILE
 %token OP_ASIGNACION OP_IGUAL_IGUAL OP_MENOR_IGUAL OP_MAYOR_IGUAL OP_DISTINTO
 
-/* Si un error sintáctico hace que el parser descarte una cabecera ya reducida, se deshace lo que apiló */
+/* Destructores de pánico: Si ocurre un error sintáctico dentro de un bloque incompleto,
+   deshace la apertura de ámbito en la pila semántica para evitar desbalanceos. */
 %destructor { sem_destruir_cabecera_funcion(); } <marca_f>
 %destructor { sem_destruir_cabecera_clase();    } <marca_c>
 
+/* Precedencia y asociatividad de operadores matemáticos */
 %left '+' '-'
 %left '*' '/'
 
 %%
 
+/* Axioma Principal de la Gramática*/
+
 prog
     : nombre_prog sent_decl_lista PR_BEGIN sent_ejec_lista PR_END ';'
       {
           registrar_arbol_programa($4);
-          #ifdef DEBUG
-          std::cout << "Se reconocio un programa" << std::endl;
-          #endif
       }
     | nombre_prog sent_decl_lista error sent_ejec_lista PR_END ';'
       {
@@ -66,7 +71,7 @@ prog
       {
           registrar_arbol_programa($4);
           error("Sintactico", LINEA_ACTUAL, "falta ';' despues del 'end' del programa");
-      	  yyerrok;
+          yyerrok;
       }
     ;
 
@@ -74,7 +79,7 @@ nombre_prog
     : ID { sem_declarar_programa($1); }
     ;
 
-/* ---------- sentencias declarativas ---------- */
+/* Sentencias Declarativas (Variables, Funciones, Clases, Typedefs)*/
 
 sent_decl_lista
     : sent_decl_lista sent_decl
@@ -196,6 +201,7 @@ clase_item
       }
     ;
 
+/* Herencia múltiple (Tema 30) */
 extends_clause
     : PR_EXTENDS lista_ids ';'
       {
@@ -209,6 +215,7 @@ extends_clause
       }
     ;
 
+/* Enumerados / Tipos definidos (Tema 23) */
 decl_typedef
     : PR_TYPEDEF ID '=' '[' lista_valores ']' ';'
       {
@@ -227,7 +234,7 @@ lista_valores
     | cte                   { sem_agregar_valor_pendiente($1->lexema); }
     ;
 
-/* ---------- sentencias ejecutables ---------- */
+/*Sentencias Ejecutables*/
 
 sent_ejec_lista
     : sent_ejec_lista sent_ejec { $$ = crear_nodo_sentencias($1, $2); }
@@ -263,6 +270,7 @@ asignacion
       }
     ;
 
+/* Asignaciones sobre miembros de objeto (tradicionales o posicionales - Tema 29) */
 asignacion_atributo
     : ID '.' ID '=' expresion ';'
       {
@@ -346,16 +354,10 @@ seleccion
     : PR_IF '(' condicion ')' bloque_sent_ejec PR_END_IF ';'
       {
           $$ = crear_nodo_if($3, $5, nullptr);
-          #ifdef DEBUG
-          std::cout << "Sentencia IF (linea " << LINEA_ACTUAL << ")" << std::endl;
-          #endif
       }
     | PR_IF '(' condicion ')' bloque_sent_ejec PR_ELSE bloque_sent_ejec PR_END_IF ';'
       {
           $$ = crear_nodo_if($3, $5, $7);
-          #ifdef DEBUG
-          std::cout << "Sentencia IF-ELSE (linea " << LINEA_ACTUAL << ")" << std::endl;
-          #endif
       }
     | PR_IF error ';'
       {
@@ -365,13 +367,11 @@ seleccion
       }
     ;
 
+/* Bucle REPEAT-WHILE (Tema 13) */
 repeat_while
     : PR_REPEAT bloque_sent_ejec PR_WHILE '(' condicion ')' ';'
       {
           $$ = crear_nodo_repeat_while($2, $5);
-          #ifdef DEBUG
-          std::cout << "Sentencia REPEAT-WHILE (linea " << LINEA_ACTUAL << ")" << std::endl;
-          #endif
       }
     | PR_REPEAT error ';'
       {
@@ -381,7 +381,7 @@ repeat_while
       }
     ;
 
-/* ---------- expresiones ---------- */
+/* Expresiones Aritméticas, Términos y Factores*/
 
 expresion
     : expresion '+' termino { $$ = sem_op_binaria("+", $1, $3); }
@@ -402,9 +402,10 @@ factor
     | '-' CTE_FLOAT                   { $$ = sem_factor_cte_neg_float($2); }
     | invocacion                      { $$ = $1; }
     | acceso_objeto                   { $$ = $1; }
-    | ID '=' '(' expresion_restr ')'  { $$ = sem_asignacion_expr($1, $4); }
+    | ID '=' '(' expresion_restr ')'  { $$ = sem_asignacion_expr($1, $4); } /* Asignación en expresión (Tema 17) */
     ;
 
+/* Reglas restringidas para evitar ambigüedad en asignaciones anidadas dentro de expresiones */
 expresion_restr
     : expresion_restr '+' termino_restr { $$ = sem_op_binaria("+", $1, $3); }
     | expresion_restr '-' termino_restr { $$ = sem_op_binaria("-", $1, $3); }
@@ -431,6 +432,7 @@ cte
     | CTE_FLOAT { $$ = $1; }
     ;
 
+/* Invocaciones a funciones y paso de orden de evaluación explícito (Tema 20) */
 invocacion
     : ID '(' lista_params_reales ')' lista_ctes_opcional
       {
@@ -469,6 +471,7 @@ lista_constantes
     | CTE_INT                      { sem_invocacion_iniciar_orden($1); }
     ;
 
+/* Accesos a miembros de clases (atributos, métodos, accesos posicionales) */
 acceso_objeto
     : ID '.' ID                              { $$ = sem_acceso_atributo($1, $3); }
     | ID '.' ID '(' lista_params_reales ')'  { $$ = sem_acceso_metodo($1, $3); }
@@ -477,6 +480,7 @@ acceso_objeto
 
 %%
 
+/* Routine de reporte de errores sintácticos invocado por Bison */
 void yyerror(const char *s) {
 	if (std::string(s).find("unexpected end of file") != std::string::npos)
 		error("Sintactico", LINEA_ACTUAL, "fin de archivo inesperado. Verificar que el programa termine con 'end;' y que no haya sentencias o bloques sin cerrar");

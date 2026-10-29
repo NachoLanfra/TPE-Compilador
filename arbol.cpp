@@ -44,13 +44,14 @@ NodoArbol* crear_nodo_control(const std::string &valor, NodoArbol *izq, NodoArbo
     return crear_nodo(valor, izq, der, TipoNodo::CONTROL);
 }
 
+// Encadena secuencias de sentencias. Evita subárboles redundantes si alguno de los lados es nulo
 NodoArbol* crear_nodo_sentencias(NodoArbol *sentencia_actual, NodoArbol *siguientes) {
     if (!sentencia_actual) return siguientes;
     if (!siguientes) return sentencia_actual;
     return crear_nodo("sentencias", sentencia_actual, siguientes, TipoNodo::SENTENCIAS);
 }
 
-// Tema 17: Asignación normal ':=' o dentro de expresión '='
+// Asignación (':=' ejecutable o '=' en expresiones). Propaga el tipo del destino hacia el nodo
 NodoArbol* crear_nodo_asignacion(const std::string &op, NodoArbol *izq, NodoArbol *der) {
     NodoArbol *nodo = crear_nodo(op, izq, der, TipoNodo::ASIGNACION);
     if (izq) {
@@ -59,14 +60,14 @@ NodoArbol* crear_nodo_asignacion(const std::string &op, NodoArbol *izq, NodoArbo
     return nodo;
 }
 
-// Tema 13: repeat <bloque> while (<condicion>);
+// Bucle REPEAT-WHILE: Agrupa el subárbol del cuerpo y la condición bajo el nodo raíz
 NodoArbol* crear_nodo_repeat_while(NodoArbol *cuerpo, NodoArbol *condicion) {
     NodoArbol *nodo_cuerpo = crear_nodo_control("cuerpo", cuerpo, nullptr);
     NodoArbol *nodo_cond = crear_nodo_control("cond", condicion, nullptr);
     return crear_nodo_control("REPEAT_WHILE", nodo_cuerpo, nodo_cond);
 }
 
-// Selección: IF-THEN-ELSE (siguiendo el esquema de árbol sintáctico de las filminas pág. 30/31)
+// Estructura IF-THEN-ELSE: Construye la jerarquía condicional (condición -> cuerpo[then, else])
 NodoArbol* crear_nodo_if(NodoArbol *condicion, NodoArbol *bloque_then, NodoArbol *bloque_else) {
     NodoArbol *nodo_cond = crear_nodo_control("cond", condicion, nullptr);
     NodoArbol *nodo_then = crear_nodo_control("then", bloque_then, nullptr);
@@ -76,7 +77,7 @@ NodoArbol* crear_nodo_if(NodoArbol *condicion, NodoArbol *bloque_then, NodoArbol
     return crear_nodo_control("IF", nodo_cond, cuerpo);
 }
 
-// Tema 20: Invocaciones a funciones con orden opcional de evaluación de parámetros
+// Invocaciones a función: Almacena parámetros reales y su orden explícito de evaluación
 NodoArbol* crear_nodo_llamada(EntradaTS *funcion, const std::vector<NodoArbol*> &params, const std::vector<int> &orden_eval) {
     NodoArbol *nodo = new NodoArbol();
     nodo->valor = funcion ? funcion->lexema : "CALL";
@@ -90,7 +91,7 @@ NodoArbol* crear_nodo_llamada(EntradaTS *funcion, const std::vector<NodoArbol*> 
     return nodo;
 }
 
-// Tema 29: Acceso posicional a atributo obj[pos]
+// Crear nodo de acceso posicional a atributo obj[pos]
 NodoArbol* crear_nodo_acceso_posicional(NodoArbol *objeto, NodoArbol *indice_pos, InfoTipo tipo_resultado) {
     NodoArbol *nodo = crear_nodo("[]", objeto, indice_pos, TipoNodo::ACCESO_POS);
     nodo->tipo = tipo_resultado;
@@ -106,7 +107,7 @@ NodoArbol* crear_nodo_acceso(NodoArbol *objeto, NodoArbol *miembro) {
     return nodo;
 }
 
-// Tema 35: Conversiones Implícitas (Entero -> Flotante)
+// Inserción explícita de nodo de conversión implícita de tipo (ej. ushortint -> doublef)
 NodoArbol* crear_nodo_conversion(NodoArbol *nodo_origen, Tipo tipo_destino) {
     std::string etiqueta = (tipo_destino == Tipo::DOUBLEF) ? "CONV_DOUBLEF" : "CONV_USHORTINT";
     NodoArbol *nodo = crear_nodo(etiqueta, nodo_origen, nullptr, TipoNodo::CONVERSION);

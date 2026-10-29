@@ -16,8 +16,8 @@ test-lexico: all
 
 test-sintaxis: all
 	./compilador test/tp2/test_gramatica_validos.txt
-	#./compilador test/tp2/test_gramatica_errores.txt
-	#./compilador test/tp2/test_negativos.txt
+	./compilador test/tp2/test_gramatica_errores.txt
+	./compilador test/tp2/test_negativos.txt
 
 test-eof: all
 	./compilador test/tp2/test_prog_sin_end.txt
@@ -34,6 +34,10 @@ test-tp3: all
 	./compilador test/tp3/tema29_acceso_posicional_atributos.txt
 	./compilador test/tp3/tema30_herencia_multiple.txt
 	./compilador test/tp3/tema35_conversiones_implicitas.txt
+	./compilador test/tp3/test_funcion_sin_return.txt
+	./compilador test/tp3/test_paso5_asignaciones.txt
+	./compilador test/tp3/test_retornos.txt
+	./compilador test/tp3/test_tres_errores.txt
 
 clean:
 	rm -f compilador y.tab.c y.tab.h

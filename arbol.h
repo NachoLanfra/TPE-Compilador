@@ -40,7 +40,9 @@ extern std::vector<std::pair<std::string, NodoArbol*>> arboles_funciones;
 
 // Constructores de nodos generales
 NodoArbol* crear_hoja(EntradaTS *simbolo);
+// Crea una hoja para valores literales sin entrada previa en la TS (ej. valores por defecto)
 NodoArbol* crear_hoja_valor(const std::string &valor, InfoTipo tipo = { Tipo::NINGUNO, nullptr });
+// Constructor genérico para nodos internos del árbol
 NodoArbol* crear_nodo(const std::string &valor, NodoArbol *izq, NodoArbol *der = nullptr, TipoNodo tipo_nodo = TipoNodo::OPERADOR);
 NodoArbol* crear_nodo_control(const std::string &valor, NodoArbol *izq, NodoArbol *der = nullptr);
 

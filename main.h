@@ -8,16 +8,26 @@
 
 enum class Tipo { NINGUNO, USHORTINT, DOUBLEF };
 
+
+// Rol semántico de un identificador dentro de la Tabla de Símbolos
 enum class Uso {
     NINGUNO,      // ID visto por el léxico pero todavía no declarado
-    VARIABLE, PARAMETRO, FUNCION,
-    CLASE, ATRIBUTO, METODO,
-    OBJETO, TYPEDEF, PROGRAMA,
-    CONSTANTE, CADENA
+    VARIABLE,
+    PARAMETRO, 
+    FUNCION,
+    CLASE, 
+    ATRIBUTO, 
+    METODO,
+    OBJETO, 
+    TYPEDEF, 
+    PROGRAMA,
+    CONSTANTE, 
+    CADENA
 };
 
 struct EntradaTS;
 
+// Empaqueta la información de tipo primitivo o la referencia a clase/typedef
 struct InfoTipo {
     Tipo t;
     EntradaTS *clase;
