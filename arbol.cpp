@@ -276,51 +276,6 @@ void imprimir_todos_los_arboles(std::ostream &out) {
     out << "\n======================================================\n";
 }
 
-static void exportar_dot_recursivo(NodoArbol *nodo, std::ostream &out, int &contador) {
-    if (!nodo) return;
-    int id_actual = ++contador;
-
-    std::string label = nodo->valor;
-    if (nodo->simbolo) {
-        label += "\\n(TS: " + nodo->simbolo->lexema + ")";
-    }
-    if (nodo->tipo.clase) {
-        label += "\\n[" + nodo->tipo.clase->lexema + "]";
-    } else if (nodo->tipo.t == Tipo::DOUBLEF) {
-        label += "\\n[doublef]";
-    } else if (nodo->tipo.t == Tipo::USHORTINT) {
-        label += "\\n[ushortint]";
-    }
-
-    out << "  node" << id_actual << " [label=\"" << label << "\"];\n";
-
-    if (nodo->izq) {
-        int id_hijo = contador + 1;
-        exportar_dot_recursivo(nodo->izq, out, contador);
-        out << "  node" << id_actual << " -> node" << id_hijo << " [label=\"izq\"];\n";
-    }
-    if (nodo->der) {
-        int id_hijo = contador + 1;
-        exportar_dot_recursivo(nodo->der, out, contador);
-        out << "  node" << id_actual << " -> node" << id_hijo << " [label=\"der\"];\n";
-    }
-    for (size_t i = 0; i < nodo->params.size(); ++i) {
-        int id_hijo = contador + 1;
-        exportar_dot_recursivo(nodo->params[i], out, contador);
-        out << "  node" << id_actual << " -> node" << id_hijo << " [label=\"p" << (i + 1) << "\"];\n";
-    }
-}
-
-void graficar_arbol(NodoArbol *raiz, const std::string &nombre_archivo) {
-    std::ofstream out(nombre_archivo);
-    if (!out.is_open()) return;
-    out << "digraph AST {\n";
-    out << "  node [shape=box, fontname=\"Arial\"];\n";
-    int contador = 0;
-    exportar_dot_recursivo(raiz, out, contador);
-    out << "}\n";
-    out.close();
-}
 
 void liberar_arbol(NodoArbol *raiz) {
     if (!raiz) return;

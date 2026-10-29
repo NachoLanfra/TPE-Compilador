@@ -549,8 +549,7 @@ int main(int argc, char* argv[]) {
     if (resultado == 0) {
         std::cout << ">>> El programa termino." << std::endl;
         imprimir_todos_los_arboles();
-        graficar_arbol(arbol_programa_principal, "arbol.dot");
-    } else {
+        } else {
         std::cout << ">>> El programa no se pudo recuperar del error." << std::endl;
     }
 

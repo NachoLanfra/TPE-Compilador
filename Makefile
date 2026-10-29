@@ -10,19 +10,19 @@ test-semantica:
 	g++ -I. test/test_semantica.cpp arbol.cpp semantica.cpp errores.cpp -o /tmp/test_sem && /tmp/test_sem
 
 test-lexico: all
-	./compilador test/test_lexico_completo.txt
-	./compilador test/test_lexico_eof_comentario.txt
-	./compilador test/test_lexico_eofcadena.txt
+	./compilador test/tp1/test_lexico_completo.txt
+	./compilador test/tp1/test_lexico_eof_comentario.txt
+	./compilador test/tp1/test_lexico_eofcadena.txt
 
 test-sintaxis: all
-	./compilador test/test_gramatica_validos.txt
-	#./compilador test/test_gramatica_errores.txt
-	#./compilador test/test_negativos.txt
+	./compilador test/tp2/test_gramatica_validos.txt
+	#./compilador test/tp2/test_gramatica_errores.txt
+	#./compilador test/tp2/test_negativos.txt
 
 test-eof: all
-	./compilador test/test_prog_sin_end.txt
-	./compilador test/test_prog_sin_puntoycoma.txt
-	./compilador test/test_prog_sin_end_con_puntoycoma.txt
+	./compilador test/tp2/test_prog_sin_end.txt
+	./compilador test/tp2/test_prog_sin_puntoycoma.txt
+	./compilador test/tp2/test_prog_sin_end_con_puntoycoma.txt
 
 test-tp3: all
 	./compilador test/tp3/tema02_arbol_sintactico.txt
@@ -34,8 +34,6 @@ test-tp3: all
 	./compilador test/tp3/tema29_acceso_posicional_atributos.txt
 	./compilador test/tp3/tema30_herencia_multiple.txt
 	./compilador test/tp3/tema35_conversiones_implicitas.txt
-
-
 
 clean:
 	rm -f compilador y.tab.c y.tab.h
