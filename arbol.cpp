@@ -254,6 +254,11 @@ void imprimir_arbol_sintactico(
 ) {
     (void)nivel;
 
+    if (!raiz) {
+        out << etiqueta << ": (vacio)\n";
+        return;
+    }
+
     imprimir_nodo_recursivo(
         raiz,
         "",
