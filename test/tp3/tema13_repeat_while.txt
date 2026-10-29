@@ -1,0 +1,56 @@
+{{ TEMA 13 - REPEAT ... WHILE (post-condicion)
+   El cuerpo se ejecuta al menos una vez y la condicion se evalua al final.
+   En el arbol: hijo izquierdo = cuerpo, hijo derecho = condicion.
+   Errores esperados en la lista final: 4. }}
+prog_repeat
+
+ushortint a, b;
+doublef d;
+
+begin
+    a := 0$us;
+    b := 5$us;
+    {{ valido: cuerpo de una sentencia }}
+    repeat
+        a := a + 1$us;
+    while (a < 5$us);
+    {{ valido: cuerpo con bloque begin-end }}
+    repeat
+    begin
+        a := a + 1$us;
+        b := b + a;
+    end;
+    while (a != b);
+    {{ valido: repeat anidado }}
+    repeat
+        repeat
+            a := a + 1$us;
+        while (a < 3$us);
+    while (b > 0$us);
+    {{ valido: condicion con un operando doublef (conversion implicita del ushortint) }}
+    repeat
+        a := a + 1$us;
+    while (a < d);
+    {{ valido: todos los comparadores }}
+    repeat
+        a := a + 1$us;
+    while (a <= b);
+    repeat
+        a := a + 1$us;
+    while (a >= b);
+    repeat
+        a := a + 1$us;
+    while (a == b);
+    {{ ERROR SEMANTICO: variable no declarada en la condicion }}
+    repeat
+        a := a + 1$us;
+    while (a < nodecl);
+    {{ ERROR SEMANTICO: variable no declarada en el cuerpo }}
+    repeat
+        nodecl := 1$us;
+    while (a < 5$us);
+    {{ ERROR SINTACTICO: falta el parentesis de la condicion }}
+    repeat
+        a := a + 1$us;
+    while a < 5$us;
+end;

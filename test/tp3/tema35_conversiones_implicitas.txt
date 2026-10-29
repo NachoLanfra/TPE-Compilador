@@ -1,0 +1,53 @@
+{{ TEMA 35 - CONVERSIONES IMPLICITAS (ushortint -> doublef)
+   Al operar o comparar un ushortint con un doublef, el compilador inserta una conversion
+   sobre el ushortint. En una asignacion, solo se convierte si el destino es doublef.
+   La conversion inversa (doublef -> ushortint) es un error.
+   Errores esperados en la lista final: 4. }}
+prog_conversiones
+
+ushortint a, b;
+doublef d, e;
+
+{{ valido: el ret convierte el ushortint al tipo de la funcion (doublef) }}
+doublef function aflotante(ushortint x)
+begin
+    ret(x);
+end;
+
+{{ valido: el parametro real ushortint se convierte al formal doublef }}
+doublef function dup(doublef q)
+begin
+    ret(q * 2.0);
+end;
+
+{{ ERROR SEMANTICO: el ret devuelve doublef en una funcion ushortint }}
+ushortint function mal(doublef y)
+begin
+    ret(y);
+end;
+
+begin
+    a := 2$us;
+    b := 3$us;
+    d := 1.5;
+    {{ validos: asignacion de ushortint a doublef (conversion del lado derecho) }}
+    e := a;
+    e := a + b;
+    {{ validos: operacion mixta, se convierte el operando ushortint }}
+    e := a + d;
+    e := d * a - b;
+    {{ validos: comparacion mixta }}
+    if (a < d)
+        e := 0.0;
+    end_if;
+    pout(a + d);
+    {{ valido: parametro real convertido }}
+    e := dup(a);
+    e := aflotante(a);
+    {{ ERROR SEMANTICO: doublef asignado a un ushortint }}
+    a := d;
+    {{ ERROR SEMANTICO: expresion mixta es doublef, no entra en un ushortint }}
+    b := a + d;
+    {{ ERROR SEMANTICO: el resultado de la funcion es doublef }}
+    a := dup(d);
+end;

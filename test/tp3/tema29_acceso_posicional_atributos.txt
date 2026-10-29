@@ -1,0 +1,57 @@
+{{ TEMA 29 - ACCESO POSICIONAL A ATRIBUTOS
+   obj[i] accede al atributo de posicion i (arranca en 0, en orden de declaracion).
+   Decision de diseno: solo cuentan los atributos PROPIOS de la clase, no los heredados.
+   Si el indice es una constante se verifica el rango; si es una variable, solo se puede
+   determinar el tipo cuando todos los atributos tienen el mismo tipo.
+   Errores esperados en la lista final: 6. }}
+prog_posicional
+
+class ca
+begin
+    ushortint x;
+    ushortint z;
+end;
+
+class cm
+begin
+    ushortint a;
+    doublef b;
+end;
+
+class ch
+begin
+    ushortint h;
+    extends ca;
+end;
+
+ca o1;
+cm o2;
+ch o3;
+ushortint i;
+doublef d;
+
+begin
+    i := 1$us;
+    {{ validos: indice constante dentro del rango }}
+    o1[0$us] = 3$us;
+    o1[1$us] = 4$us;
+    i := o1[0$us];
+    {{ valido: indice variable, los dos atributos de 'ca' son ushortint }}
+    o1[i] = 5$us;
+    {{ valido: atributo doublef, la constante ushortint se convierte }}
+    o2[1$us] = 2$us;
+    {{ valido: o3 tiene un unico atributo propio (h) }}
+    o3[0$us] = 1$us;
+    {{ ERROR SEMANTICO: indice fuera de rango }}
+    o1[2$us] = 1$us;
+    {{ ERROR SEMANTICO: los heredados no cuentan, 'ch' tiene 1 solo atributo propio }}
+    o3[1$us] = 1$us;
+    {{ ERROR SEMANTICO: indice variable pero los atributos de 'cm' tienen tipos distintos }}
+    o2[i] = 1$us;
+    {{ ERROR SEMANTICO: doublef asignado a un atributo ushortint }}
+    o1[0$us] = 1.5;
+    {{ ERROR SEMANTICO: 'i' no es un objeto }}
+    i[0$us] = 1$us;
+    {{ ERROR SEMANTICO: objeto no declarado }}
+    noexiste[0$us] = 1$us;
+end;

@@ -1,0 +1,37 @@
+{{ TEMA 17 - ASIGNACION DE EXPRESIONES EN EXPRESIONES
+   El operador '=' con la expresion entre parentesis (sin anidar) es una asignacion
+   que ademas devuelve un valor: tiene el tipo del identificador asignado.
+   El ultimo caso (':=' dentro de una expresion) da 2 errores: el sintactico y 'asignacion mal formada'.
+   Errores esperados en la lista final: 6. }}
+prog_asig_expr
+
+ushortint a, b, c, e;
+doublef d, f;
+
+ushortint function g(ushortint p)
+begin
+    ret(p);
+end;
+
+begin
+    {{ validos }}
+    a := b = (2$us);
+    a := b = (c + 1$us);
+    a := b = (c) * e = (a / 3$us);
+    a := g(b = (3$us));
+    if (a = (3$us) == 3$us)
+        a := 1$us;
+    end_if;
+    {{ valido: ushortint asignado a un doublef con '=' lleva conversion implicita }}
+    d := f = (a);
+    {{ ERROR SEMANTICO: doublef asignado a un ushortint con '=' }}
+    a := b = (d);
+    {{ ERROR SEMANTICO: identificador no declarado a la izquierda del '=' }}
+    a := zz = (1$us);
+    {{ ERROR SEMANTICO: una funcion no puede estar a la izquierda del '=' }}
+    a := g = (1$us);
+    {{ ERROR SEMANTICO: variable no declarada dentro de los parentesis }}
+    a := b = (nodecl);
+    {{ ERROR SINTACTICO: ':=' dentro de una expresion no esta permitido }}
+    a := b := (2$us);
+end;

@@ -1,0 +1,74 @@
+{{ TEMA 2 - ARBOL SINTACTICO (y tipos ushortint / doublef)
+   Verifica la forma del arbol de cada sentencia ejecutable, el ret por defecto,
+   las funciones anidadas y los rangos de las constantes.
+   Cada linea marcada con ERROR debe aparecer en la lista final de errores.
+   Los 2 errores lexicos de constantes arrastran ademas 2 errores sintacticos cada uno
+   (asignacion mal formada), porque el lexico descarta la constante.
+   Errores esperados en la lista final: 9. }}
+prog_arbol
+
+ushortint a, b, c;
+doublef d;
+
+{{ funcion con if-else: ret en ambas ramas }}
+ushortint function mayor(ushortint x, ushortint y)
+begin
+    if (x > y)
+        ret(x);
+    else
+        ret(y);
+    end_if;
+end;
+
+{{ funcion sin ret: el compilador agrega un RETORNO con el valor por defecto (0) }}
+ushortint function sin_ret(ushortint x)
+begin
+    x := x + 1$us;
+end;
+
+{{ funcion anidada: tiene su propio arbol (interna:main:externa) }}
+ushortint function externa(ushortint x)
+    ushortint function interna(ushortint y)
+    begin
+        ret(y * 2$us);
+    end;
+begin
+    ret(interna(x));
+end;
+
+begin
+    {{ constantes ushortint: limites validos 0 y 255 }}
+    a := 0$us;
+    b := 255$us;
+    {{ ERROR LEXICO: 256$us esta fuera del rango de ushortint }}
+    c := 256$us;
+    {{ constantes doublef: con y sin parte entera, con exponente positivo y negativo }}
+    d := 1.5;
+    d := .5;
+    d := 0.0;
+    d := 1.2d+10;
+    d := 3.0d-5;
+    {{ ERROR LEXICO: exponente fuera del rango de doublef }}
+    d := 2.0d+400;
+    {{ precedencia y asociatividad: el arbol debe respetarlas }}
+    c := a + b * 2$us - 3$us / 1$us;
+    pout(a + b);
+    pout('texto de salida');
+    a := mayor(a, b);
+    c := externa(a);
+    if (a == b)
+    begin
+        a := 0$us;
+        b := 1$us;
+    end;
+    end_if;
+    repeat
+        a := a + 1$us;
+    while (a < 10$us);
+    {{ ERROR SEMANTICO: ret fuera de una funcion }}
+    ret(a);
+    {{ ERROR SEMANTICO: variable no declarada }}
+    c := noexiste;
+    {{ ERROR SEMANTICO: ushortint := doublef (narrowing) }}
+    a := d;
+end;

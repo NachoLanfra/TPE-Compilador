@@ -4,7 +4,7 @@ all: y.tab.c
 y.tab.c: gramatica.y
 	bison -dy -Wno-yacc -Wno-other gramatica.y
 
-test: test-semantica test-lexico test-sintaxis test-eof
+test: test-semantica test-lexico test-sintaxis test-eof test-tp3
 
 test-semantica:
 	g++ -I. test/test_semantica.cpp arbol.cpp semantica.cpp errores.cpp -o /tmp/test_sem && /tmp/test_sem
@@ -23,6 +23,18 @@ test-eof: all
 	./compilador test/test_prog_sin_end.txt
 	./compilador test/test_prog_sin_puntoycoma.txt
 	./compilador test/test_prog_sin_end_con_puntoycoma.txt
+
+test-tp3: all
+	./compilador test/tp3/tema02_arbol_sintactico.txt
+	./compilador test/tp3/tema13_repeat_while.txt
+	./compilador test/tp3/tema17_asignacion_en_expresiones.txt
+	./compilador test/tp3/tema20_orden_evaluacion_parametros.txt
+	./compilador test/tp3/tema23_enumeraciones.txt
+	./compilador test/tp3/tema25_asignacion_estructura_objetos.txt
+	./compilador test/tp3/tema29_acceso_posicional_atributos.txt
+	./compilador test/tp3/tema30_herencia_multiple.txt
+	./compilador test/tp3/tema35_conversiones_implicitas.txt
+
 
 
 clean:

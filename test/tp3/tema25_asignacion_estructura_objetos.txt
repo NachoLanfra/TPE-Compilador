@@ -1,0 +1,58 @@
+{{ TEMA 25 - ASIGNACION POR ESTRUCTURA ENTRE OBJETOS (sin codigo)
+   Se permite asignar objetos de clases distintas solo si tienen la misma estructura:
+   misma cantidad de atributos propios, con los mismos tipos y en el mismo orden.
+   Errores esperados en la lista final: 4. }}
+prog_estructura
+
+class ca
+begin
+    ushortint x;
+    doublef y;
+end;
+
+class cb
+begin
+    ushortint x;
+    doublef y;
+end;
+
+class cc
+begin
+    doublef z;
+end;
+
+class cd
+begin
+    ushortint w;
+    doublef v;
+end;
+
+class ce
+begin
+    doublef y;
+    ushortint x;
+end;
+
+ca o1, o1b;
+cb o2;
+cc o3;
+cd o4;
+ce o5;
+ushortint k;
+
+begin
+    {{ valido: mismo tipo de clase }}
+    o1 := o1b;
+    {{ valido: clases distintas con la misma estructura }}
+    o1 := o2;
+    {{ valido: igual estructura aunque los atributos se llamen distinto }}
+    o1 := o4;
+    {{ ERROR SEMANTICO: distinta cantidad de atributos }}
+    o1 := o3;
+    {{ ERROR SEMANTICO: mismos tipos pero en distinto orden }}
+    o1 := o5;
+    {{ ERROR SEMANTICO: objeto asignado a un ushortint }}
+    k := o1;
+    {{ ERROR SEMANTICO: ushortint asignado a un objeto }}
+    o1 := k;
+end;

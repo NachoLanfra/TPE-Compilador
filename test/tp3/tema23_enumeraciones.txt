@@ -1,0 +1,39 @@
+{{ TEMA 23 - ENUMERACIONES (typedef)
+   typedef nombre = [valores]; define un tipo. Al asignar una constante a una variable
+   de ese tipo, debe ser uno de los valores. Si el valor es variable o expresion, el
+   chequeo se posterga.
+   Errores esperados en la lista final: 4. }}
+prog_enum
+
+typedef pares = [2$us, 4$us, 6$us];
+typedef factores = [1.5, 2.5];
+
+ushortint k;
+pares p1, p2;
+factores f1;
+
+{{ ERROR SEMANTICO: el tipo 'inexistente' no esta declarado }}
+inexistente z;
+
+ushortint function usa(pares v)
+begin
+    ret(1$us);
+end;
+
+begin
+    {{ validos: constantes dentro de la enumeracion }}
+    p1 := 4$us;
+    p2 := 2$us;
+    f1 := 2.5;
+    {{ validos: variable o expresion, el chequeo se posterga }}
+    p1 := k;
+    p1 := p2;
+    {{ valido: parametro real con un valor de la enumeracion }}
+    k := usa(6$us);
+    {{ ERROR SEMANTICO: 5$us no pertenece a 'pares' }}
+    p1 := 5$us;
+    {{ ERROR SEMANTICO: 3.5 no pertenece a 'factores' }}
+    f1 := 3.5;
+    {{ ERROR SEMANTICO: parametro real fuera de la enumeracion }}
+    k := usa(7$us);
+end;

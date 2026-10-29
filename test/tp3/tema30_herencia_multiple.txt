@@ -1,0 +1,89 @@
+{{ TEMA 30 - HERENCIA MULTIPLE (desambiguado por orden)
+   Si un atributo o metodo no esta en la clase del objeto, se busca en las clases de
+   la lista extends, EN EL ORDEN DE LA LISTA (y recursivamente en sus padres).
+   Errores esperados en la lista final: 7. }}
+prog_herencia
+
+class ca
+begin
+    ushortint x;
+    ushortint m(ushortint q)
+    begin
+        ret(q);
+    end;
+end;
+
+class cb
+begin
+    doublef x;
+    doublef n(doublef r)
+    begin
+        ret(r);
+    end;
+end;
+
+{{ cc hereda de ca y despues de cb: 'x' es el de ca (ushortint) }}
+class cc
+begin
+    ushortint w;
+    extends ca, cb;
+end;
+
+{{ cd hereda de cb y despues de ca: 'x' es el de cb (doublef) }}
+class cd
+begin
+    ushortint w;
+    extends cb, ca;
+end;
+
+{{ ce hereda solo de cc: herencia en cadena (ce -> cc -> ca, cb) }}
+class ce
+begin
+    extends cc;
+end;
+
+{{ ERROR SEMANTICO: la clase padre no existe }}
+class cf
+begin
+    ushortint v;
+    extends noexiste;
+end;
+
+{{ ERROR SEMANTICO: una clase no puede heredar de si misma }}
+class cg
+begin
+    ushortint v;
+    extends cg;
+end;
+
+ca o1;
+cc c1;
+cd c2;
+ce c3;
+ushortint k;
+doublef d;
+
+begin
+    {{ validos: 'x' de cc sale de ca (primera de la lista), por eso es ushortint }}
+    c1.x = 1$us;
+    {{ valido: 'x' de cd sale de cb (primera de la lista), por eso es doublef }}
+    c2.x = 1.5;
+    {{ valido: ushortint asignado a un doublef, se convierte }}
+    c2.x = 1$us;
+    {{ validos: metodos heredados }}
+    k := c1.m(1$us);
+    d := c1.n(2.5);
+    {{ validos: herencia en cadena }}
+    c3.x = 1$us;
+    k := c3.m(1$us);
+    {{ ERROR SEMANTICO: 'x' de cc es ushortint, no se puede asignar un doublef }}
+    c1.x = 1.5;
+    {{ ERROR SEMANTICO: el miembro no existe en la clase ni en las que hereda }}
+    c1.noexiste = 1$us;
+    {{ ERROR SEMANTICO: cantidad de parametros del metodo }}
+    k := o1.m(1$us, 2$us);
+    {{ ERROR SEMANTICO: tipo del parametro del metodo }}
+    k := o1.m(1.5);
+    {{ ERROR SEMANTICO: metodo inexistente }}
+    k := o1.fantasma(1$us);
+end;
