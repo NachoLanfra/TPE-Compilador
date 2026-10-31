@@ -325,9 +325,6 @@ int yylex() {
         } else if (accion == A_NL) {
             a_nl(); // Suma 1 a la variable global
         }else if (accion == A_COM) { // Se ejecuta cuando se cierra un comentario multilinea
-            #ifdef DEBUG
-            std::cout << "-> Info: Comentario multilineas cerrado e ignorado exitosamente." << std::endl;
-            #endif
         }
         
         int estado_previo = estado_actual;
@@ -344,9 +341,6 @@ int yylex() {
                     if (token == ID) {
                         yylval.ts_ref = a_ts(lexema_actual);
                     }
-                    #ifdef DEBUG
-                    std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual << std::endl;
-                    #endif
                     return token;
                 }
                 case A_PR: {
@@ -361,9 +355,6 @@ int yylex() {
                         estado_actual = 0;
                         continue; 
                     }
-                    #ifdef DEBUG
-                    std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual << std::endl;
-                    #endif
                     return token;
                 }
                     
@@ -376,9 +367,6 @@ int yylex() {
                         continue; // Lo descarta y sigue leyendo
                     }
                     yylval.ts_ref = a_ts(lexema_actual);
-                    #ifdef DEBUG
-                    std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual << std::endl;
-                    #endif
                     yylval.ts_ref->tipo = Tipo::USHORTINT; yylval.ts_ref->uso = Uso::CONSTANTE;
                     return CTE_INT;
                     
@@ -391,18 +379,12 @@ int yylex() {
                         continue; // Lo descarta y sigue leyendo
                     }
                     yylval.ts_ref = a_ts(lexema_actual);
-                    #ifdef DEBUG
-                    std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual << std::endl;
-                    #endif
                     yylval.ts_ref->tipo = Tipo::DOUBLEF; yylval.ts_ref->uso = Uso::CONSTANTE;
                     return CTE_FLOAT;
                     
                 case A_STR:
                     // Si es una cadena, lo agregamos a la tabla de simbolos y retornamos el token CTE_STR
                     yylval.ts_ref = a_ts(lexema_actual); 
-                    #ifdef DEBUG
-                    std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual << std::endl;
-                    #endif
                     yylval.ts_ref->uso = Uso::CADENA;
                     return CTE_STR;
                     
@@ -413,17 +395,11 @@ int yylex() {
                     if (it != tabla_operadores.end()) {
                         return it->second;
                     }
-                    #ifdef DEBUG
-                    std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual[0] << std::endl;
-                    #endif
                     return lexema_actual[0];
                 }
                 case A_RTK:
                     // Devuelve el caracter extra leído al archivo y cierra el token simple (ej: '<').
                     a_retract(archivo); 
-                    #ifdef DEBUG
-                    std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual[0] << std::endl;
-                    #endif
                     return lexema_actual[0]; 
                     
                 case A_NONE:
@@ -463,9 +439,6 @@ int yylex() {
                 if (token == ID) {
                     yylval.ts_ref = a_ts(lexema_actual);
                 }
-                #ifdef DEBUG
-                std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual << std::endl;
-                #endif
                 return token;
             }
             case A_PR: {
@@ -478,16 +451,10 @@ int yylex() {
                     lexema_actual = "";
                     return 0;
                 }
-                #ifdef DEBUG
-                std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual << std::endl;
-                #endif
                 return token;
             }
             case A_RTK:
                 // Si es un caracter especial, lo devolvemos directamente.
-                #ifdef DEBUG
-                std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual[0] << std::endl;
-                #endif
                 return lexema_actual[0];
             case A_FLT:
                 // Si es un flotante, lo agregamos a la tabla de simbolos y retornamos el token CTE_FLOAT
@@ -496,9 +463,6 @@ int yylex() {
                     return 0; 
                 }                
                 yylval.ts_ref = a_ts(lexema_actual);
-                #ifdef DEBUG
-                std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual << std::endl;
-                #endif
                 yylval.ts_ref->tipo = Tipo::DOUBLEF; yylval.ts_ref->uso = Uso::CONSTANTE;
                 return CTE_FLOAT;
 
@@ -509,9 +473,6 @@ int yylex() {
                     return 0; 
                 }
                 yylval.ts_ref = a_ts(lexema_actual);
-                #ifdef DEBUG
-                std::cout << "Token detectado en línea " << LINEA_ACTUAL << ": " << lexema_actual << std::endl;
-                #endif
                 yylval.ts_ref->tipo = Tipo::USHORTINT; yylval.ts_ref->uso = Uso::CONSTANTE;
                 return CTE_INT;    
                     
