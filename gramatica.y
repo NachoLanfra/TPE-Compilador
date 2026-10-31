@@ -280,6 +280,10 @@ asignacion_atributo
       {
           $$ = sem_asignacion_posicional($1, $3, $6);
       }
+    | ID '.' ID '(' lista_params_reales ')' ';'
+      {
+          $$ = sem_acceso_metodo($1, $3);
+      }
     | ID '.' ID error ';'
       {
           $$ = nullptr;
