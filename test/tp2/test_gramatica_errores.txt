@@ -1,3 +1,8 @@
+{{ Catalogo de errores de recuperacion sintactica/semantica, una seccion por
+   construccion del lenguaje. No esta desglosado escenario por escenario como
+   los tema*.txt de tp3: este numero es solo una alarma de regresion, si cambia
+   hay que leer la salida completa para saber que seccion se movio.
+   Errores esperados en la lista final: 70. }}
 programa_errores
 
 {{ ========================================================= }}

@@ -1,3 +1,16 @@
+{{ Catalogo de estructuras sintacticas del TP2. Pese al nombre, ya NO es
+   semanticamente limpio: es un artefacto de TP2 (solo sintaxis) anterior a
+   los chequeos semanticos de TP3. Los 10 errores vienen de 5 construcciones
+   que quedaron obsoletas, no de un bug (confirmado; no se citan numeros de
+   linea aca porque se desactualizan apenas alguien edita algo arriba):
+     - "a := 0.0;" con 'a' ushortint: narrowing de doublef (Tema 35).
+     - dos invocaciones a 'calcular' con una lista de orden de evaluacion de
+       cantidad distinta a la de parametros (Tema 20).
+     - tres accesos posicionales con indice variable sobre 'persona'/
+       'empleado', clases con atributos de tipos distintos (Tema 29).
+     - "p.calcular(...)": 'persona' no tiene ese metodo.
+     - tres 'ret' sueltos en el cuerpo principal, fuera de una funcion.
+   Errores esperados en la lista final: 10. }}
 programa_gramatica
 
 {{ ========================================================= }}
