@@ -469,14 +469,14 @@ static EntradaTS* miembro_de_objeto(EntradaTS *raw_obj, EntradaTS *raw_miembro, 
 NodoArbol* sem_asignacion(EntradaTS *id, NodoArbol *exp) {
     EntradaTS *res = resolver_valor(id);
     NodoArbol *hoja_id = crear_hoja(res);
-    adaptar_asignacion(hoja_id, exp);
+    if (!hoja_id || !exp || !adaptar_asignacion(hoja_id, exp)) return nullptr;
     return crear_nodo_asignacion(":=", hoja_id, exp);
 }
 
 NodoArbol* sem_asignacion_expr(EntradaTS *id, NodoArbol *exp) {
     EntradaTS *res_id = resolver_valor(id);
     NodoArbol *hoja_id = crear_hoja(res_id);
-    adaptar_asignacion(hoja_id, exp);
+    if (!hoja_id || !exp || !adaptar_asignacion(hoja_id, exp)) return nullptr;
     return crear_nodo_asignacion("=", hoja_id, exp);
 }
 
