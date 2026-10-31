@@ -1,0 +1,80 @@
+{{ TEST - REDECLARACIONES Y VISIBILIDAD POR AMBITO
+   El TP3 exige detectar variables, funciones, clases y metodos redeclarados
+   dentro del MISMO ambito, y a la vez permitir el mismo nombre en ambitos
+   DISTINTOS (name mangling / "shadowing"). Este test cubre los 4 casos de
+   redeclaracion exigidos y, en contraste, casos validos de mismo nombre en
+   ambitos distintos para cada una de esas 4 categorias.
+   Errores esperados en la lista final: 4. }}
+prog_redeclaraciones
+
+{{ ERROR SEMANTICO: 'a' redeclarada en el ambito main }}
+ushortint a;
+ushortint a;
+
+{{ ERROR SEMANTICO: 'f' redeclarada en el ambito main }}
+ushortint function f(ushortint x)
+begin
+    ret(x);
+end;
+
+ushortint function f(ushortint y)
+begin
+    ret(y);
+end;
+
+{{ ERROR SEMANTICO: 'c' redeclarada en el ambito main }}
+class c
+begin
+    ushortint v;
+end;
+
+class c
+begin
+    ushortint w;
+end;
+
+{{ ERROR SEMANTICO: 'n' redeclarado dentro de la clase 'd' (mismo ambito main:d) }}
+class d
+begin
+    ushortint n(ushortint q)
+    begin
+        ret(q);
+    end;
+    ushortint n(ushortint r)
+    begin
+        ret(r);
+    end;
+end;
+
+{{ valido: 'n' tambien existe como metodo de 'e', pero en un ambito distinto
+   (main:e) al de 'd' (main:d): no es una redeclaracion, cada clase tiene
+   su propio 'n'. }}
+class e
+begin
+    ushortint n(ushortint s)
+    begin
+        ret(s);
+    end;
+end;
+
+{{ valido: el parametro 'a' de 'g' vive en el ambito main:g, distinto del
+   'a' global (main): no pisa ni choca con la variable global. }}
+ushortint function g(ushortint a)
+begin
+    ret(a);
+end;
+
+{{ valido: la variable local 'a' de 'h' vive en el ambito main:h, distinto
+   del 'a' global (main): mismo nombre, ambito distinto, sin error. }}
+ushortint function h(ushortint x)
+    ushortint a;
+begin
+    a := x;
+    ret(a);
+end;
+
+begin
+    a := 1$us;
+    a := g(a);
+    a := h(a);
+end;

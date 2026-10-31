@@ -1,3 +1,9 @@
+{{ TEST CHICO: ASIGNACIONES (Tema 17 + Tema 35 combinados)
+   Nombre heredado de un paso interno de desarrollo, no de un tema puntual.
+   Cubre lo mismo que tema17_asignacion_en_expresiones.txt y
+   tema35_conversiones_implicitas.txt pero junto y mas corto; se mantiene como
+   smoke test rapido, no reemplaza a esos dos.
+   Errores esperados en la lista final: 1. }}
 prog_asignaciones
 ushortint a, b, c;
 doublef z, x, y;
@@ -7,5 +13,6 @@ begin
     z := a + b;
     c := a = (b + 1$us);
     z := x = (1.5 + 2.0);
+    {{ ERROR SEMANTICO: expresion doublef (x + y) asignada a un ushortint (a) }}
     a := x + y;
 end;

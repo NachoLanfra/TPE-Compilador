@@ -13,6 +13,12 @@ doublef x,;
 
 ushortint correcto;
 
+{{ 'a' y 'b' se declaran bien aca porque las 4 declaraciones de arriba fallaron
+   a proposito: sin esto, cualquier uso de 'a'/'b' mas abajo (incluida la seccion
+   de RECUPERACION al final) arrastra 'no esta declarado' y tapa el error que
+   cada seccion realmente quiere mostrar. }}
+ushortint a, b;
+
 {{ ========================================================= }}
 {{ ERROR EN FUNCION                                          }}
 {{ ========================================================= }}

@@ -1,7 +1,13 @@
+{{ Errores esperados en la lista final: 1 (ushortint no admite signo). }}
 programa_negativos
 
 ushortint a, b;
 doublef x, y;
+
+doublef function calcular(doublef p1, doublef p2)
+begin
+    ret(p1 + p2);
+end;
 
 begin
 
@@ -48,5 +54,12 @@ x := -0.0;
 x := 0.0;
 x := 10.5;
 x := 255.75;
+
+{{ ========================================================= }}
+{{ USHORTINT NO ADMITE SIGNO (tipo sin signo)                }}
+{{ ERROR SEMANTICO esperado en la linea de abajo.            }}
+{{ ========================================================= }}
+
+a := -5$us;
 
 end;

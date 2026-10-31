@@ -1,5 +1,7 @@
 {{ TEST DE RET - Grupo 32
-   Los avisos esperados estan indicados en cada caso. }}
+   Lo esperado para cada caso esta indicado en su comentario. Cuando falta un
+   'ret' se agrega uno con el valor por defecto al final, sin ningun error ni
+   aviso: hoy el compilador no emite ningun diagnostico para ese caso. }}
 prueba_ret
 
 ushortint x;
@@ -11,7 +13,8 @@ begin
     ret(a);
 end;
 
-{{ CASO 2: sin ret. Esperado: AVISO en f2 (valor por defecto 0) }}
+{{ CASO 2: sin ret. Esperado: sin error ni aviso; se agrega un ret(0) al final
+   en silencio (hoy el compilador no emite ningun diagnostico para esto). }}
 ushortint function f2(ushortint a)
 begin
     a := 1$us;
@@ -82,7 +85,7 @@ begin
 end;
 
 {{ CASO 10: funcion anidada. La interna tiene ret, la externa no.
-   Esperado: sin aviso para interna, AVISO para externa }}
+   Esperado: sin error ni aviso en ninguna (externa recibe su ret(0) en silencio). }}
 ushortint function externa(ushortint a)
     ushortint function interna(ushortint b)
     begin
@@ -93,7 +96,7 @@ begin
 end;
 
 {{ CASO 11: funcion anidada. La externa tiene ret, la interna no.
-   Esperado: AVISO para interna, sin aviso para externa }}
+   Esperado: sin error ni aviso en ninguna (interna2 recibe su ret(0) en silencio). }}
 ushortint function externa2(ushortint a)
     ushortint function interna2(ushortint b)
     begin
@@ -122,13 +125,15 @@ begin
     ret(a);
 end;
 
-{{ CASO 14: ret con error y sin otro ret. Esperado: ERROR de ret mal formado + AVISO de falta de ret }}
+{{ CASO 14: ret con error y sin otro ret. Esperado: ERROR de ret mal formado; sin
+   aviso por la falta de otro ret (se agrega el ret(0) por defecto en silencio). }}
 ushortint function f14(ushortint a)
 begin
     ret a;
 end;
 
-{{ CASO 15: metodo con ret y metodo sin ret. Esperado: sin aviso para m1, AVISO para m2 }}
+{{ CASO 15: metodo con ret y metodo sin ret. Esperado: sin error ni aviso en
+   ninguno (m2 recibe su ret(0) en silencio). }}
 class c
 begin
     ushortint m1(ushortint q)
@@ -155,7 +160,8 @@ end;
 
 begin
     {{ CASO 17: ret en el programa principal (fuera de funcion).
-       Hoy se acepta sin error. Ver nota en el informe. }}
+       Esperado: ERROR "la sentencia 'ret' solo puede utilizarse dentro de una
+       funcion o metodo" (ver tema02 y test_tres_errores para el mismo chequeo). }}
     ret(x);
     x := f1(1$us);
 end;

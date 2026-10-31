@@ -38,6 +38,7 @@ test-tp3: all
 	./compilador test/tp3/test_paso5_asignaciones.txt
 	./compilador test/tp3/test_retornos.txt
 	./compilador test/tp3/test_tres_errores.txt
+	./compilador test/tp3/test_redeclaraciones.txt
 
 clean:
 	rm -f compilador y.tab.c y.tab.h

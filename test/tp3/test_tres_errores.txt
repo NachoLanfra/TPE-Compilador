@@ -1,3 +1,7 @@
+{{ Pese al nombre del archivo, el escenario 1 (constante fuera de rango) arrastra
+   ademas 2 errores sintacticos (el lexico descarta la constante y deja la
+   asignacion incompleta), igual que documenta tema02_arbol_sintactico.txt. Total
+   real en la lista final: 7 errores para los 4 escenarios de abajo. }}
 prog_prueba_errores
 
 ushortint a;
