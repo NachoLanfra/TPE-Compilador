@@ -6,6 +6,7 @@
 NodoArbol *arbol_programa_principal = nullptr;
 std::vector<std::pair<std::string, NodoArbol*>> arboles_funciones;
 
+// Hoja que apunta a una entrada de la tabla (id, constante o cadena) y toma el tipo de ahí
 NodoArbol* crear_hoja(EntradaTS *simbolo) {
     if (!simbolo) return nullptr;
     NodoArbol *nodo = new NodoArbol();
@@ -18,6 +19,7 @@ NodoArbol* crear_hoja(EntradaTS *simbolo) {
     return nodo;
 }
 
+// Hoja con un valor suelto, sin entrada en la tabla (ej. el 0 del ret implícito)
 NodoArbol* crear_hoja_valor(const std::string &valor, InfoTipo tipo) {
     NodoArbol *nodo = new NodoArbol();
     nodo->valor = valor;
@@ -29,6 +31,7 @@ NodoArbol* crear_hoja_valor(const std::string &valor, InfoTipo tipo) {
     return nodo;
 }
 
+// Nodo interno genérico, nace sin tipo; los constructores de abajo lo completan
 NodoArbol* crear_nodo(const std::string &valor, NodoArbol *izq, NodoArbol *der, TipoNodo tipo_nodo) {
     NodoArbol *nodo = new NodoArbol();
     nodo->valor = valor;
@@ -40,18 +43,19 @@ NodoArbol* crear_nodo(const std::string &valor, NodoArbol *izq, NodoArbol *der, 
     return nodo;
 }
 
+// Nodo de estructura de control (IF, cuerpo, cond, REPEAT_WHILE)
 NodoArbol* crear_nodo_control(const std::string &valor, NodoArbol *izq, NodoArbol *der) {
     return crear_nodo(valor, izq, der, TipoNodo::CONTROL);
 }
 
-// Encadena secuencias de sentencias. Evita subárboles redundantes si alguno de los lados es nulo
+// Encadena sentencias; si un lado es nulo devuelve el otro para no crear nodos de más
 NodoArbol* crear_nodo_sentencias(NodoArbol *sentencia_actual, NodoArbol *siguientes) {
     if (!sentencia_actual) return siguientes;
     if (!siguientes) return sentencia_actual;
     return crear_nodo("sentencias", sentencia_actual, siguientes, TipoNodo::SENTENCIAS);
 }
 
-// Asignación (':=' ejecutable o '=' en expresiones). Propaga el tipo del destino hacia el nodo
+// Asignación ':=' o '=' (Tema 17); el nodo toma el tipo del destino
 NodoArbol* crear_nodo_asignacion(const std::string &op, NodoArbol *izq, NodoArbol *der) {
     NodoArbol *nodo = crear_nodo(op, izq, der, TipoNodo::ASIGNACION);
     if (izq) {
@@ -60,14 +64,14 @@ NodoArbol* crear_nodo_asignacion(const std::string &op, NodoArbol *izq, NodoArbo
     return nodo;
 }
 
-// Bucle REPEAT-WHILE: Agrupa el subárbol del cuerpo y la condición bajo el nodo raíz
+// Tema 13: REPEAT_WHILE con el cuerpo a la izquierda y la condición a la derecha
 NodoArbol* crear_nodo_repeat_while(NodoArbol *cuerpo, NodoArbol *condicion) {
     NodoArbol *nodo_cuerpo = crear_nodo_control("cuerpo", cuerpo, nullptr);
     NodoArbol *nodo_cond = crear_nodo_control("cond", condicion, nullptr);
     return crear_nodo_control("REPEAT_WHILE", nodo_cuerpo, nodo_cond);
 }
 
-// Estructura IF-THEN-ELSE: Construye la jerarquía condicional (condición -> cuerpo[then, else])
+// IF con la condición a la izquierda y a la derecha un nodo cuerpo que agrupa then y else
 NodoArbol* crear_nodo_if(NodoArbol *condicion, NodoArbol *bloque_then, NodoArbol *bloque_else) {
     NodoArbol *nodo_cond = crear_nodo_control("cond", condicion, nullptr);
     NodoArbol *nodo_then = crear_nodo_control("then", bloque_then, nullptr);
@@ -77,7 +81,7 @@ NodoArbol* crear_nodo_if(NodoArbol *condicion, NodoArbol *bloque_then, NodoArbol
     return crear_nodo_control("IF", nodo_cond, cuerpo);
 }
 
-// Invocaciones a función: Almacena parámetros reales y su orden explícito de evaluación
+// Tema 20: nodo de llamada; los reales van en params y el orden explícito en orden_eval
 NodoArbol* crear_nodo_llamada(EntradaTS *funcion, const std::vector<NodoArbol*> &params, const std::vector<int> &orden_eval) {
     NodoArbol *nodo = new NodoArbol();
     nodo->valor = funcion ? funcion->lexema : "CALL";
@@ -91,14 +95,14 @@ NodoArbol* crear_nodo_llamada(EntradaTS *funcion, const std::vector<NodoArbol*> 
     return nodo;
 }
 
-// Crear nodo de acceso posicional a atributo obj[pos]
+// Tema 29: obj[pos]; el tipo lo decide semantica según el índice
 NodoArbol* crear_nodo_acceso_posicional(NodoArbol *objeto, NodoArbol *indice_pos, InfoTipo tipo_resultado) {
     NodoArbol *nodo = crear_nodo("[]", objeto, indice_pos, TipoNodo::ACCESO_POS);
     nodo->tipo = tipo_resultado;
     return nodo;
 }
 
-// Acceso tradicional obj.atr / obj.metodo
+// obj.atr u obj.metodo(); toma el tipo del miembro
 NodoArbol* crear_nodo_acceso(NodoArbol *objeto, NodoArbol *miembro) {
     NodoArbol *nodo = crear_nodo(".", objeto, miembro, TipoNodo::ACCESO);
     if (miembro) {
@@ -107,7 +111,7 @@ NodoArbol* crear_nodo_acceso(NodoArbol *objeto, NodoArbol *miembro) {
     return nodo;
 }
 
-// Inserción explícita de nodo de conversión implícita de tipo (ej. ushortint -> doublef)
+// Tema 35: nodo CONV_DOUBLEF que envuelve al origen para la promoción implícita
 NodoArbol* crear_nodo_conversion(NodoArbol *nodo_origen, Tipo tipo_destino) {
     std::string etiqueta = (tipo_destino == Tipo::DOUBLEF) ? "CONV_DOUBLEF" : "CONV_USHORTINT";
     NodoArbol *nodo = crear_nodo(etiqueta, nodo_origen, nullptr, TipoNodo::CONVERSION);
@@ -115,6 +119,7 @@ NodoArbol* crear_nodo_conversion(NodoArbol *nodo_origen, Tipo tipo_destino) {
     return nodo;
 }
 
+// Cada función o método tiene su propio árbol; el del programa principal va aparte
 void registrar_arbol_funcion(const std::string &nombre_funcion, NodoArbol *raiz) {
     arboles_funciones.push_back({ nombre_funcion, raiz });
 }
@@ -124,7 +129,8 @@ void registrar_arbol_programa(NodoArbol *raiz) {
 }
 
 // Visualización
-// Visualización del AST en formato de árbol
+
+// Etiqueta de un nodo: su valor, el tipo entre corchetes y el orden de evaluación si tiene
 static std::string obtener_etiqueta_nodo(const NodoArbol *nodo) {
     std::string etiqueta = nodo->valor;
 
@@ -148,7 +154,7 @@ static std::string obtener_etiqueta_nodo(const NodoArbol *nodo) {
     return etiqueta;
 }
 
-// Aplana las listas de sentencias para evitar niveles repetidos.
+// Junta en un vector las sentencias de una cadena de nodos SENTENCIAS para imprimirlas al mismo nivel
 static void recopilar_sentencias(
     NodoArbol *nodo,
     std::vector<NodoArbol *> &sentencias
@@ -163,6 +169,7 @@ static void recopilar_sentencias(
     }
 }
 
+// Imprime un nodo y sus hijos con el dibujo de árbol; prefijo trae las barras de los niveles de arriba
 static void imprimir_nodo_recursivo(
     NodoArbol *nodo,
     const std::string &prefijo,
@@ -186,8 +193,7 @@ static void imprimir_nodo_recursivo(
 
     std::vector<std::pair<std::string, NodoArbol *>> hijos;
 
-    // Las listas de sentencias se muestran sin anidar
-    // un nodo "sentencias" por cada instrucción.
+    // Las sentencias se muestran todas al mismo nivel en vez de anidar un nodo "sentencias" por instrucción
     if (nodo->tipo_nodo == TipoNodo::SENTENCIAS) {
         std::vector<NodoArbol *> sentencias;
         recopilar_sentencias(nodo, sentencias);
@@ -196,6 +202,7 @@ static void imprimir_nodo_recursivo(
             hijos.push_back({"", sentencia});
         }
     } else {
+        // Un hijo que es lista de sentencias también se aplana
         if (nodo->izq) {
             if (nodo->izq->tipo_nodo == TipoNodo::SENTENCIAS) {
                 std::vector<NodoArbol *> sentencias;
@@ -222,6 +229,7 @@ static void imprimir_nodo_recursivo(
             }
         }
 
+        // Los parámetros de una llamada van como hijos numerados
         for (size_t i = 0; i < nodo->params.size(); ++i) {
             hijos.push_back({
                 "Parametro " + std::to_string(i + 1),
@@ -230,6 +238,7 @@ static void imprimir_nodo_recursivo(
         }
     }
 
+    // Los hijos heredan el prefijo más una barra, o espacios si este nodo era el último hermano
     std::string siguiente_prefijo = prefijo;
     if (!raiz) {
         siguiente_prefijo += ultimo ? "    " : "│   ";
@@ -246,6 +255,7 @@ static void imprimir_nodo_recursivo(
     }
 }
 
+// Punto de entrada para imprimir un árbol; nivel ya no se usa
 void imprimir_arbol_sintactico(
     NodoArbol *raiz,
     const std::string &etiqueta,
@@ -269,6 +279,7 @@ void imprimir_arbol_sintactico(
     );
 }
 
+// Imprime los árboles de todas las funciones y después el del programa principal
 void imprimir_todos_los_arboles(std::ostream &out) {
     out << "            REPRESENTACION INTERMEDIA: AST            \n";
 
@@ -283,6 +294,7 @@ void imprimir_todos_los_arboles(std::ostream &out) {
 }
 
 
+// Libera el nodo y todo lo que cuelga de él, params incluidos
 void liberar_arbol(NodoArbol *raiz) {
     if (!raiz) return;
     liberar_arbol(raiz->izq);
@@ -293,6 +305,7 @@ void liberar_arbol(NodoArbol *raiz) {
     delete raiz;
 }
 
+// Libera todos los árboles al terminar
 void liberar_todos_los_arboles() {
     liberar_arbol(arbol_programa_principal);
     arbol_programa_principal = nullptr;

@@ -41,8 +41,7 @@ const std::unordered_map<std::string, int> tabla_referencias = {
     {"while",     PR_WHILE},    
 };
 
-// Tabla de Símbolos
-// (EntradaTS ahora está definido en main.h, porque el %union del parser también lo necesita
+// Tabla de Símbolos (EntradaTS está en main.h porque el %union del parser también lo necesita)
 std::unordered_map<std::string, EntradaTS> tabla_simbolos;
 
 // Tabla de operadores
@@ -155,8 +154,8 @@ std::array<std::array<AccionSemantica, CANT_COLUMNAS>, CANT_ESTADOS> matriz_acci
 }};
 
 
+// Columna de las matrices que corresponde al caracter leído
 int obtener_columna(char c) {
-    //Funcion que dice en que columna debo mirar AS y Estado sig
     unsigned char uc = static_cast<unsigned char>(c); // Convertir a unsigned char para evitar problemas con ñ, acentos y otros caracteres especiales
 
     if (std::isupper(uc)) return COL_L_MAYUS;
@@ -212,23 +211,23 @@ void a_nl() {
     LINEA_ACTUAL++; // Suma 1 a la variable global de línea actual
 }
 
+// Trunca el identificador a 22 caracteres con un warning
 void a_trunc(std::string& cadena) {
-    // Trunca la cadena si supera los 22 caracteres y emite un warning
     if (cadena.length() > 22) {
         advertencia("Lexico", LINEA_ACTUAL, "El identificador '" + cadena + "' supera los 22 caracteres. Fue truncado.");
         cadena = cadena.substr(0, 22);
 }
 }
 
+// Pasa la cadena a minúsculas
 void a_lower(std::string& cadena) {
-    // Convierte la cadena a minúsculas
     for (char& c : cadena) {
         c = std::tolower(c);
     }
 }
 
+// Tema 2: valida que el entero esté en 0..255
 bool a_val_int(const std::string& cadena) {
-    // Valida si el entero está dentro del rango de 0 a 255
     try {
         size_t pos = cadena.find('$');
         std::string num_str = cadena.substr(0, pos); // Extrae la parte antes del '$'
@@ -244,8 +243,8 @@ bool a_val_int(const std::string& cadena) {
     }
 }
 
+// Tema 8: valida el rango de 64 bits del doublef y le agrega el '+' al exponente si no tiene signo
 bool a_val_float(std::string& cadena) {
-    // Valida si el flotante está dentro del rango de 64 bits y corrige la notación científica si es necesario
     size_t pos_e = cadena.find('d'); 
     if (pos_e != std::string::npos && pos_e + 1 < cadena.length()) { // Si hay un 'd' y no es el último carácter
         if (cadena[pos_e + 1] != '+' && cadena[pos_e + 1] != '-') { // Si el siguiente carácter no es '+' ni '-', inserta un '+' después del 'd'
@@ -279,8 +278,8 @@ bool a_val_float(std::string& cadena) {
     }
 }
 
+// Busca el lexema en la tabla de símbolos y lo da de alta si no existe
 EntradaTS* a_ts(const std::string& lexema) {
-    // Funcion que busca lexema en la Tabla de Simbolos y lo da de alta si no existe
     auto it = tabla_simbolos.find(lexema); // Busca el lexema
     if (it == tabla_simbolos.end()) { // Si no existe en la tabla, lo da de alta
         EntradaTS nueva_entrada;
@@ -291,8 +290,8 @@ EntradaTS* a_ts(const std::string& lexema) {
     return &(it->second); // Devuelve la dirección de memoria (&) del struct asociado a esa clave
 }
 
+// Token de la palabra reservada, o ID si no lo es
 int a_tpr(const std::string& lexema) {
-    // Funcion que busca lexema en la Tabla de Palabras Reservadas
     auto it = tabla_referencias.find(lexema);
     if (it != tabla_referencias.end()) {
         return it->second; // Retorna el Token asociado a la palabra reservada
@@ -301,14 +300,15 @@ int a_tpr(const std::string& lexema) {
     return ID;     // Si no es palabra reservada, lo tratamos como un ID normal
 }
 
+// Registra el error léxico del caracter que rompió el autómata
 void a_error(char c) {
-    // Funcion que imprime el error lexico y la linea en la que se encuentra
     if (c == '\n')
         error("Lexico", LINEA_ACTUAL, "salto de linea inesperado: lexema incompleto descartado");
     else
         error("Lexico", LINEA_ACTUAL, std::string("caracter no reconocido: '") + c + "'");
 }
 
+// Autómata del léxico: avanza por las matrices hasta un estado final y devuelve el token a yyparse
 int yylex() { 
     int estado_actual = 0;
     lexema_actual = ""; 
@@ -490,6 +490,7 @@ int yylex() {
 }
 
 
+// Abre el archivo, corre el parser e imprime árboles, tabla de símbolos y errores
 int main(int argc, char* argv[]) {
     if (argc < 2) {
         std::cerr << "Error: Faltan parámetros." << std::endl;
@@ -514,8 +515,7 @@ int main(int argc, char* argv[]) {
         std::cout << ">>> El programa no se pudo recuperar del error." << std::endl;
     }
 
-    // Las entradas "crudas" creadas por el léxico para los identificadores (sin ámbito) ya no se usan:
-    // cada símbolo declarado quedó registrado con su nombre mangleado (nombre:ámbito).
+    // Se borran las entradas crudas del léxico (sin ámbito): lo declarado ya quedó como nombre:ambito
     for (auto it = tabla_simbolos.begin(); it != tabla_simbolos.end(); ) {
         if (it->second.uso == Uso::NINGUNO && it->first.find(':') == std::string::npos)
             it = tabla_simbolos.erase(it);

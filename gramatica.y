@@ -43,8 +43,7 @@ void yyerror(const char *s);
 %token PR_EXTENDS PR_TYPEDEF PR_REPEAT PR_WHILE
 %token OP_ASIGNACION OP_IGUAL_IGUAL OP_MENOR_IGUAL OP_MAYOR_IGUAL OP_DISTINTO
 
-/* Destructores de pánico: Si ocurre un error sintáctico dentro de un bloque incompleto,
-   deshace la apertura de ámbito en la pila semántica para evitar desbalanceos. */
+/* Si falla el parseo dentro de una función o clase, deshace la apertura de ámbito que hizo la cabecera */
 %destructor { sem_destruir_cabecera_funcion(); } <marca_f>
 %destructor { sem_destruir_cabecera_clase();    } <marca_c>
 
@@ -129,6 +128,7 @@ lista_params_formales
     | tipo ID                           { sem_agregar_param_formal($2, $1); }
     ;
 
+/* La cabecera es regla aparte para que el %destructor cierre el ámbito si falla el resto de la función */
 cabecera_funcion
     : tipo PR_FUNCTION ID
       {
@@ -150,6 +150,7 @@ decl_funcion
       }
     ;
 
+/* Igual que cabecera_funcion: abre el ámbito en una regla propia por el %destructor */
 cabecera_clase
     : PR_CLASS ID
       {
@@ -176,6 +177,7 @@ clase_item_lista
     | clase_item
     ;
 
+/* Igual que cabecera_funcion */
 cabecera_metodo
     : tipo ID
       {
@@ -409,7 +411,7 @@ factor
     | ID '=' '(' expresion_restr ')'  { $$ = sem_asignacion_expr($1, $4); } /* Asignación en expresión (Tema 17) */
     ;
 
-/* Reglas restringidas para evitar ambigüedad en asignaciones anidadas dentro de expresiones */
+/* Copia de expresion sin la alternativa ID = ( ... ), para que la asignación en expresión (Tema 17) no se anide */
 expresion_restr
     : expresion_restr '+' termino_restr { $$ = sem_op_binaria("+", $1, $3); }
     | expresion_restr '-' termino_restr { $$ = sem_op_binaria("-", $1, $3); }
@@ -456,6 +458,7 @@ lista_params_reales
     | expresion                         { sem_invocacion_iniciar_params($1); }
     ;
 
+/* Si la lista de orden falta o está rota se pushea una vacía, así sem_invocacion siempre tiene algo que sacar */
 lista_ctes_opcional
     : '[' lista_constantes ']'
     | '[' error ']'
