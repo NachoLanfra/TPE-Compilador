@@ -66,8 +66,8 @@ NodoArbol* crear_nodo_asignacion(const std::string &op, NodoArbol *izq, NodoArbo
 
 // Tema 13: REPEAT_WHILE con el cuerpo a la izquierda y la condición a la derecha
 NodoArbol* crear_nodo_repeat_while(NodoArbol *cuerpo, NodoArbol *condicion) {
-    NodoArbol *nodo_cuerpo = crear_nodo_control("cuerpo", cuerpo, nullptr);
-    NodoArbol *nodo_cond = crear_nodo_control("cond", condicion, nullptr);
+    NodoArbol *nodo_cuerpo = crear_nodo_control("cuerpo", cuerpo, nullptr); // el cuerpo se ejecuta primero
+    NodoArbol *nodo_cond = crear_nodo_control("cond", condicion, nullptr); // la condición se evalúa después de cada vuelta
     return crear_nodo_control("REPEAT_WHILE", nodo_cuerpo, nodo_cond);
 }
 
@@ -84,20 +84,20 @@ NodoArbol* crear_nodo_if(NodoArbol *condicion, NodoArbol *bloque_then, NodoArbol
 // Tema 20: nodo de llamada; los reales van en params y el orden explícito en orden_eval
 NodoArbol* crear_nodo_llamada(EntradaTS *funcion, const std::vector<NodoArbol*> &params, const std::vector<int> &orden_eval) {
     NodoArbol *nodo = new NodoArbol();
-    nodo->valor = funcion ? funcion->lexema : "CALL";
+    nodo->valor = funcion ? funcion->lexema : "CALL"; // CALL si la función no se resolvió
     nodo->tipo_nodo = TipoNodo::LLAMADA;
     nodo->simbolo = funcion;
     nodo->tipo = funcion ? info_de(funcion) : InfoTipo{Tipo::NINGUNO, nullptr};
     nodo->izq = nullptr;
     nodo->der = nullptr;
-    nodo->params = params;
-    nodo->orden_eval = orden_eval;
+    nodo->params = params; // vacío cuando semantica armó las copias
+    nodo->orden_eval = orden_eval; // se muestra en la etiqueta del nodo
     return nodo;
 }
 
 // Tema 29: obj[pos]; el tipo lo decide semantica según el índice
 NodoArbol* crear_nodo_acceso_posicional(NodoArbol *objeto, NodoArbol *indice_pos, InfoTipo tipo_resultado) {
-    NodoArbol *nodo = crear_nodo("[]", objeto, indice_pos, TipoNodo::ACCESO_POS);
+    NodoArbol *nodo = crear_nodo("[]", objeto, indice_pos, TipoNodo::ACCESO_POS); // objeto a la izquierda, índice a la derecha
     nodo->tipo = tipo_resultado;
     return nodo;
 }
@@ -113,9 +113,9 @@ NodoArbol* crear_nodo_acceso(NodoArbol *objeto, NodoArbol *miembro) {
 
 // Tema 35: nodo CONV_DOUBLEF que envuelve al origen para la promoción implícita
 NodoArbol* crear_nodo_conversion(NodoArbol *nodo_origen, Tipo tipo_destino) {
-    std::string etiqueta = (tipo_destino == Tipo::DOUBLEF) ? "CONV_DOUBLEF" : "CONV_USHORTINT";
+    std::string etiqueta = (tipo_destino == Tipo::DOUBLEF) ? "CONV_DOUBLEF" : "CONV_USHORTINT"; // CONV_USHORTINT no se usa, esa conversión es error
     NodoArbol *nodo = crear_nodo(etiqueta, nodo_origen, nullptr, TipoNodo::CONVERSION);
-    nodo->tipo = { tipo_destino, nullptr };
+    nodo->tipo = { tipo_destino, nullptr }; // el hijo conserva su tipo original
     return nodo;
 }
 

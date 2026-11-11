@@ -207,11 +207,11 @@ clase_item
 extends_clause
     : PR_EXTENDS lista_ids ';'
       {
-          sem_extends();
+          sem_extends(); // los ids de lista_ids son los padres
       }
     | PR_EXTENDS error ';'
       {
-          sem_limpiar_ids_pendientes();
+          sem_limpiar_ids_pendientes(); // descarta los padres a medio juntar
           error("Sintactico", LINEA_ACTUAL, "clausula 'extends' mal formada");
           yyerrok;
       }
@@ -221,18 +221,18 @@ extends_clause
 decl_typedef
     : PR_TYPEDEF ID '=' '[' lista_valores ']' ';'
       {
-          sem_typedef($2);
+          sem_typedef($2); // los valores ya los juntó lista_valores
       }
     | PR_TYPEDEF error ';'
       {
-          sem_limpiar_valores_pendientes();
+          sem_limpiar_valores_pendientes(); // descarta los valores a medio juntar
           error("Sintactico", LINEA_ACTUAL, "declaracion de typedef mal formada");
           yyerrok;
       }
     ;
 
 lista_valores
-    : lista_valores ',' cte { sem_agregar_valor_pendiente($3->lexema); }
+    : lista_valores ',' cte { sem_agregar_valor_pendiente($3->lexema); } /* se guarda el lexema, ej. 2$us */
     | cte                   { sem_agregar_valor_pendiente($1->lexema); }
     ;
 
@@ -276,15 +276,15 @@ asignacion
 asignacion_atributo
     : ID '.' ID '=' expresion ';'
       {
-          $$ = sem_asignacion_atributo($1, $3, $5);
+          $$ = sem_asignacion_atributo($1, $3, $5); // obj.atr = exp
       }
     | ID '[' indice ']' '=' expresion ';'
       {
-          $$ = sem_asignacion_posicional($1, $3, $6);
+          $$ = sem_asignacion_posicional($1, $3, $6); // Tema 29: obj[k] = exp
       }
     | ID '.' ID '(' lista_params_reales ')' ';'
       {
-          $$ = sem_acceso_metodo($1, $3);
+          $$ = sem_acceso_metodo($1, $3); // obj.metodo(...) como sentencia
       }
     | ID '.' ID error ';'
       {
@@ -301,8 +301,8 @@ asignacion_atributo
     ;
 
 indice
-    : CTE_INT { $$ = crear_hoja($1); }
-    | ID      { $$ = sem_factor_id($1); }
+    : CTE_INT { $$ = crear_hoja($1); } /* índice constante, se chequea el rango */
+    | ID      { $$ = sem_factor_id($1); } /* índice variable, tiene que ser entero */
     ;
 
 retorno 
@@ -377,7 +377,7 @@ seleccion
 repeat_while
     : PR_REPEAT bloque_sent_ejec PR_WHILE '(' condicion ')' ';'
       {
-          $$ = crear_nodo_repeat_while($2, $5);
+          $$ = crear_nodo_repeat_while($2, $5); // $2 es el cuerpo y $5 la condición
       }
     | PR_REPEAT error ';'
       {
@@ -442,11 +442,11 @@ cte
 invocacion
     : ID '(' lista_params_reales ')' lista_ctes_opcional
       {
-          $$ = sem_invocacion($1);
+          $$ = sem_invocacion($1); // saca de las pilas lo de esta llamada
       }
     | ID '(' error ')' lista_ctes_opcional
       {
-          sem_invocacion_error();
+          sem_invocacion_error(); // descarta lo que se apiló para esta llamada
           $$ = nullptr;
           error("Sintactico", LINEA_ACTUAL, "invocacion a funcion mal formada");
           yyerrok;
@@ -454,8 +454,8 @@ invocacion
     ;
 
 lista_params_reales
-    : lista_params_reales ',' expresion { sem_invocacion_nuevo_param($3); }
-    | expresion                         { sem_invocacion_iniciar_params($1); }
+    : lista_params_reales ',' expresion { sem_invocacion_nuevo_param($3); } /* los demás van a la lista del tope */
+    | expresion                         { sem_invocacion_iniciar_params($1); } /* el primero abre una lista nueva */
     ;
 
 /* Si la lista de orden falta o está rota se pushea una vacía, así sem_invocacion siempre tiene algo que sacar */
@@ -463,26 +463,26 @@ lista_ctes_opcional
     : '[' lista_constantes ']'
     | '[' error ']'
       {
-          sem_invocacion_orden_vacio();
+          sem_invocacion_orden_vacio(); // lista rota: cuenta como sin orden
           error("Sintactico", LINEA_ACTUAL, "lista de orden de evaluacion mal formada");
           yyerrok;
       }
     |
       {
-          sem_invocacion_orden_vacio();
+          sem_invocacion_orden_vacio(); // sin lista: orden natural
       }
     ;
 
 lista_constantes
-    : lista_constantes ',' CTE_INT { sem_invocacion_agregar_orden($3); }
-    | CTE_INT                      { sem_invocacion_iniciar_orden($1); }
+    : lista_constantes ',' CTE_INT { sem_invocacion_agregar_orden($3); } /* los demás van a la lista del tope */
+    | CTE_INT                      { sem_invocacion_iniciar_orden($1); } /* el primero abre una lista nueva */
     ;
 
 /* Accesos a miembros de clases (atributos, métodos, accesos posicionales) */
 acceso_objeto
     : ID '.' ID                              { $$ = sem_acceso_atributo($1, $3); }
-    | ID '.' ID '(' lista_params_reales ')'  { $$ = sem_acceso_metodo($1, $3); }
-    | ID '[' indice ']'                      { $$ = sem_acceso_posicional($1, $3); }
+    | ID '.' ID '(' lista_params_reales ')'  { $$ = sem_acceso_metodo($1, $3); } /* Tema 30: busca también en los padres */
+    | ID '[' indice ']'                      { $$ = sem_acceso_posicional($1, $3); } /* Tema 29 */
     ;
 
 %%

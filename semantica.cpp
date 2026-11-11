@@ -70,11 +70,11 @@ static bool es_enum(const InfoTipo &t)     { return t.clase && t.clase->uso == U
 
 // Tema 25: misma cantidad de atributos propios, mismo orden y mismo tipo; los métodos no cuentan
 static bool misma_estructura(const EntradaTS *c1, const EntradaTS *c2) {
-    if (c1 == c2) return true;
-    if (c1->atributos.size() != c2->atributos.size()) return false;
+    if (c1 == c2) return true; // la misma clase siempre es compatible
+    if (c1->atributos.size() != c2->atributos.size()) return false; // distinta cantidad de atributos
     for (size_t i = 0; i < c1->atributos.size(); i++) {
         const EntradaTS *a = c1->atributos[i], *b = c2->atributos[i];
-        if (a->tipo != b->tipo || a->tipo_nombre != b->tipo_nombre) return false;
+        if (a->tipo != b->tipo || a->tipo_nombre != b->tipo_nombre) return false; // el atributo i es de otro tipo
     }
     return true;
 }
@@ -84,10 +84,10 @@ static bool lexema_entero(const std::string &lx) { return lx.find('$') != std::s
 
 // Pasa una constante a double: saca el sufijo $us o cambia la 'd' del exponente por 'e'
 static double valor_de(const std::string &lx) {
-    if (lexema_entero(lx)) return std::stod(lx.substr(0, lx.find('$')));
+    if (lexema_entero(lx)) return std::stod(lx.substr(0, lx.find('$'))); // 10$us -> 10
     std::string s = lx;
     size_t p = s.find('d');
-    if (p != std::string::npos) s[p] = 'e';
+    if (p != std::string::npos) s[p] = 'e'; // 1.5d+3 -> 1.5e+3
     p = s.find('D');
     if (p != std::string::npos) s[p] = 'E';
     return std::stod(s);
@@ -98,7 +98,7 @@ static bool valor_en_enum(const EntradaTS *constante, const EntradaTS *typedef_)
     bool es_int = lexema_entero(constante->lexema);
     double v = valor_de(constante->lexema);
     for (const std::string &lx : typedef_->valores)
-        if (lexema_entero(lx) == es_int && valor_de(lx) == v) return true;
+        if (lexema_entero(lx) == es_int && valor_de(lx) == v) return true; // mismo tipo de constante y mismo valor
     return false;
 }
 
@@ -106,15 +106,15 @@ static bool valor_en_enum(const EntradaTS *constante, const EntradaTS *typedef_)
 
 // Chequea que orig sirva donde se espera dest; si hay que promover a doublef reemplaza orig por un nodo de conversión
 bool adaptar_a_tipo(const InfoTipo &dest, NodoArbol *&orig, const std::string &ctx) {
-    if (!orig || es_roto(dest) || es_roto(orig->tipo)) return false;
+    if (!orig || es_roto(dest) || es_roto(orig->tipo)) return false; // error previo, no se avisa de nuevo
     const InfoTipo o = orig->tipo;
     const std::string incompat = "Incompatibilidad de tipos en " + ctx + ": no se puede usar un valor de tipo '" + nombre_tipo(o) + "' donde se espera '" + nombre_tipo(dest) + "'";
 
     // Destino enum: solo acepta el mismo enum o una constante de su lista; variables pasan (queda para TP4)
     if (es_enum(dest)) {
-        if (es_clase(o)) { error_sem(incompat); return false; }
+        if (es_clase(o)) { error_sem(incompat); return false; } // un objeto no entra en un enum
         if (es_enum(o)) {
-            if (o.clase != dest.clase) { error_sem(incompat); return false; }
+            if (o.clase != dest.clase) { error_sem(incompat); return false; } // son dos enums distintos
             return true;
         }
         if (orig->tipo_nodo == TipoNodo::HOJA && orig->simbolo && orig->simbolo->uso == Uso::CONSTANTE
@@ -136,9 +136,9 @@ bool adaptar_a_tipo(const InfoTipo &dest, NodoArbol *&orig, const std::string &c
 
     // Destino numérico: ushortint -> doublef se convierte, doublef -> ushortint es error
     if (!es_numerico(dest) || !es_numerico(o)) { error_sem(incompat); return false; }
-    if (dest.t == o.t) return true;
+    if (dest.t == o.t) return true; // mismo tipo, no hay que convertir
     if (dest.t == Tipo::DOUBLEF && o.t == Tipo::USHORTINT) {
-        orig = crear_nodo_conversion(orig, Tipo::DOUBLEF);
+        orig = crear_nodo_conversion(orig, Tipo::DOUBLEF); // envuelve la expresión en CONV_DOUBLEF
         return true;
     }
     error_sem(incompat);
@@ -164,18 +164,18 @@ static bool es_comparador(const std::string &op) {
 NodoArbol* operar(const std::string &op, NodoArbol *izq, NodoArbol *der) {
     if (!izq || !der) return nullptr;
     const InfoTipo ti = izq->tipo, td = der->tipo;
-    if (es_roto(ti) || es_roto(td)) return nullptr;
+    if (es_roto(ti) || es_roto(td)) return nullptr; // error previo
 
     if (!es_numerico(ti) || !es_numerico(td)) {
-        const InfoTipo &malo = es_numerico(ti) ? td : ti;
+        const InfoTipo &malo = es_numerico(ti) ? td : ti; // el operando que no es numérico
         error_sem("un operando de tipo '" + nombre_tipo(malo) + "' no se puede usar con el operador '" + op + "'");
         return nullptr;
     }
 
-    Tipo res = ti.t;
+    Tipo res = ti.t; // si son iguales, el resultado es de ese tipo
     if (ti.t != td.t) {
-        res = Tipo::DOUBLEF;
-        if (ti.t == Tipo::USHORTINT) izq = crear_nodo_conversion(izq, Tipo::DOUBLEF);
+        res = Tipo::DOUBLEF; // si son distintos, gana doublef
+        if (ti.t == Tipo::USHORTINT) izq = crear_nodo_conversion(izq, Tipo::DOUBLEF); // se envuelve el que es ushortint
         else                         der = crear_nodo_conversion(der, Tipo::DOUBLEF);
     }
 
@@ -367,13 +367,13 @@ void sem_cerrar_metodo(NodoArbol *cuerpo) {
 void sem_extends() {
     for (EntradaTS *id : ids_pendientes) {
         EntradaTS *padre = resolver(id);
-        if (!padre || clases_abiertas.empty()) continue;
+        if (!padre || clases_abiertas.empty()) continue; // no declarado, ya se avisó
         if (padre->uso != Uso::CLASE)
             error("Semantico", LINEA_ACTUAL, "'" + id->lexema + "' es " + nombre_uso(padre->uso) + " y se usa como clase en 'extends'");
-        else if (padre == clases_abiertas.back())
+        else if (padre == clases_abiertas.back()) // class a extends a
             error("Semantico", LINEA_ACTUAL, "la clase '" + id->lexema + "' no puede heredar de si misma");
         else
-            clases_abiertas.back()->padres.push_back(padre->lexema);
+            clases_abiertas.back()->padres.push_back(padre->lexema); // se guarda el nombre mangleado
     }
     ids_pendientes.clear();
 }
@@ -381,7 +381,7 @@ void sem_extends() {
 // Tema 23: declara el enum con los valores que juntó valores_pendientes
 void sem_typedef(EntradaTS *id) {
     EntradaTS *t = declarar(id, Uso::TYPEDEF, SIN_TIPO);
-    t->valores = valores_pendientes;
+    t->valores = valores_pendientes; // los valores de [ ... ] en orden
     valores_pendientes.clear();
 }
 
@@ -481,12 +481,12 @@ static EntradaTS* clase_de(const EntradaTS *e) {
 
 // Tema 30: busca primero en la clase y después en cada padre en orden, recursivo; gana el primero
 static EntradaTS* buscar_miembro(const EntradaTS *clase, const std::string &nombre) {
-    for (EntradaTS *a : clase->atributos) if (nombre_base(a) == nombre) return a;
-    for (EntradaTS *m : clase->metodos)   if (nombre_base(m) == nombre) return m;
+    for (EntradaTS *a : clase->atributos) if (nombre_base(a) == nombre) return a; // primero los atributos propios
+    for (EntradaTS *m : clase->metodos)   if (nombre_base(m) == nombre) return m; // después los métodos propios
     for (const std::string &p : clase->padres) {
         auto it = tabla_simbolos.find(p);
         if (it == tabla_simbolos.end()) continue;
-        if (EntradaTS *r = buscar_miembro(&it->second, nombre)) return r;
+        if (EntradaTS *r = buscar_miembro(&it->second, nombre)) return r; // y por último cada padre, en orden
     }
     return nullptr;
 }
@@ -517,7 +517,7 @@ NodoArbol* sem_asignacion_expr(EntradaTS *id, NodoArbol *exp) {
     EntradaTS *res_id = resolver_valor(id);
     NodoArbol *hoja_id = crear_hoja(res_id);
     if (!hoja_id || !exp || !adaptar_asignacion(hoja_id, exp)) return nullptr;
-    return crear_nodo_asignacion("=", hoja_id, exp);
+    return crear_nodo_asignacion("=", hoja_id, exp); // '=' para distinguirla de ':='
 }
 
 // obj.atr := exp
@@ -596,11 +596,13 @@ NodoArbol* sem_factor_cte_neg_float(EntradaTS *cte) {
 
 // Invocaciones (Tema 20): pilas de listas porque las llamadas se anidan, f(g(x), y); el primer parámetro hace push y los demás van al tope
 
+// Agrega un parámetro real a la llamada del tope
 void sem_invocacion_nuevo_param(NodoArbol *param) {
     if (pila_params_reales.empty()) pila_params_reales.push_back({});
     pila_params_reales.back().push_back(param);
 }
 
+// Primer parámetro de una llamada: abre una lista nueva
 void sem_invocacion_iniciar_params(NodoArbol *param) {
     pila_params_reales.push_back({ param });
 }
@@ -612,10 +614,11 @@ void sem_invocacion_agregar_orden(EntradaTS *cte) {
         std::string s = cte->lexema;
         size_t p = s.find('$');
         if (p != std::string::npos) s = s.substr(0, p);
-        pila_orden_eval.back().push_back(std::stoi(s));
+        pila_orden_eval.back().push_back(std::stoi(s)); // se agrega a la lista del tope
     } catch (...) {}
 }
 
+// Primer valor de la lista de orden: abre una lista nueva
 void sem_invocacion_iniciar_orden(EntradaTS *cte) {
     std::vector<int> nuevo_orden;
     try {
@@ -624,7 +627,7 @@ void sem_invocacion_iniciar_orden(EntradaTS *cte) {
         if (p != std::string::npos) s = s.substr(0, p);
         nuevo_orden.push_back(std::stoi(s));
     } catch (...) {}
-    pila_orden_eval.push_back(nuevo_orden);
+    pila_orden_eval.push_back(nuevo_orden); // lista nueva para esta llamada
 }
 
 // Llamada sin lista de orden: se pushea una vacía para que la pila quede alineada
@@ -641,7 +644,7 @@ static bool verificar_args(EntradaTS *f, std::vector<NodoArbol*> &args) {
     }
     bool ok = true;
     for (size_t i = 0; i < args.size(); i++)
-        if (!verificar_param(f->params_formales[i], args[i])) ok = false;
+        if (!verificar_param(f->params_formales[i], args[i])) ok = false; // sigue para avisar de todos los parámetros mal
     return ok;
 }
 
@@ -652,9 +655,9 @@ static bool orden_valido(EntradaTS *f, const std::vector<int> &ord) {
         error_sem("la lista de orden de evaluacion de '" + nombre_base(f) + "' tiene " + std::to_string(ord.size()) + " valor(es) y la funcion tiene " + std::to_string(n) + " parametro(s)");
         return false;
     }
-    std::vector<bool> visto(n + 1, false);
+    std::vector<bool> visto(n + 1, false); // qué posiciones ya aparecieron
     for (int k : ord) {
-        if (k < 1 || (size_t)k > n || visto[k]) {
+        if (k < 1 || (size_t)k > n || visto[k]) { // fuera de rango o repetido
             error_sem("la lista de orden de evaluacion de '" + nombre_base(f) + "' debe ser una permutacion de 1 a " + std::to_string(n));
             return false;
         }
@@ -666,26 +669,26 @@ static bool orden_valido(EntradaTS *f, const std::vector<int> &ord) {
 // Nodo de f(args)[orden]: saca de las pilas lo de esta llamada, resuelve f y valida
 NodoArbol* sem_invocacion(EntradaTS *id) {
     std::vector<NodoArbol*> args;
-    if (!pila_params_reales.empty()) { args = pila_params_reales.back(); pila_params_reales.pop_back(); }
+    if (!pila_params_reales.empty()) { args = pila_params_reales.back(); pila_params_reales.pop_back(); } // reales de esta llamada
     std::vector<int> ord;
-    if (!pila_orden_eval.empty()) { ord = pila_orden_eval.back(); pila_orden_eval.pop_back(); }
+    if (!pila_orden_eval.empty()) { ord = pila_orden_eval.back(); pila_orden_eval.pop_back(); } // orden de esta llamada, puede estar vacío
 
     EntradaTS *f = resolver_funcion(id);
-    if (!f) return crear_nodo_llamada(nullptr, args, ord);
+    if (!f) return crear_nodo_llamada(nullptr, args, ord); // función no declarada
 
     bool ok = verificar_args(f, args);
     if (!ord.empty() && !orden_valido(f, ord)) ok = false;
-    if (!ok) return crear_nodo_llamada(f, args, ord);
+    if (!ok) return crear_nodo_llamada(f, args, ord); // con error, la llamada queda sin copias
 
     // El hijo izquierdo de la llamada es una cadena de copias formal := real en el orden pedido (ord es 1-based)
     NodoArbol *copias = nullptr;
     for (size_t k = 0; k < args.size(); k++) {
-        size_t i = ord.empty() ? k : (size_t)ord[k] - 1;
+        size_t i = ord.empty() ? k : (size_t)ord[k] - 1; // parámetro que se copia en el paso k
         NodoArbol *copia = crear_nodo_asignacion(":=", crear_hoja(f->params_formales[i]), args[i]);
         copias = crear_nodo_sentencias(copias, copia);
     }
     NodoArbol *llamada = crear_nodo_llamada(f, {}, ord);
-    llamada->izq = copias;
+    llamada->izq = copias; // las copias cuelgan a la izquierda
     return llamada;
 }
 
@@ -736,12 +739,12 @@ NodoArbol* sem_acceso_posicional(EntradaTS *id_obj, NodoArbol *indice) {
         return nullptr;
     }
 
-    InfoTipo res = info_de(attrs[0]);
+    InfoTipo res = info_de(attrs[0]); // por defecto, el tipo del primer atributo
     // Índice constante: se chequea el rango y el tipo es el del atributo k
     if (indice->simbolo && indice->simbolo->uso == Uso::CONSTANTE) {
         const std::string &lx = indice->simbolo->lexema;
-        size_t k = std::stoul(lx.substr(0, lx.find('$')));
-        if (k >= attrs.size()) {
+        size_t k = std::stoul(lx.substr(0, lx.find('$'))); // 2$us -> 2
+        if (k >= attrs.size()) { // los índices van de 0 a n-1
             error_sem("indice " + std::to_string(k) + " fuera de rango: la clase '" + nombre_base(clase) + "' tiene " + std::to_string(attrs.size()) + " atributo(s)");
             return nullptr;
         }
@@ -753,7 +756,7 @@ NodoArbol* sem_acceso_posicional(EntradaTS *id_obj, NodoArbol *indice) {
             error_sem("el indice de '" + nombre_base(obj) + "[...]' debe ser entero");
             return nullptr;
         }
-        for (const EntradaTS *a : attrs)
+        for (const EntradaTS *a : attrs) // todos con el tipo del primero
             if (a->tipo != attrs[0]->tipo || a->tipo_nombre != attrs[0]->tipo_nombre) {
                 error_sem("no se puede determinar el tipo de '" + nombre_base(obj) + "[...]': los atributos de '" + nombre_base(clase) + "' tienen tipos distintos; use un indice constante");
                 return nullptr;
