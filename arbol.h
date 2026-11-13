@@ -15,7 +15,7 @@ enum class TipoNodo {
     SENTENCIAS,     // Secuencia / bloque de sentencias (hijo izquierdo: sentencia, derecho: resto)
     CONVERSION,     // Conversión implícita de entero a doublef (Tema 35)
     LLAMADA,        // Invocación a función / método (Tema 20)
-    ACCESO,         // Acceso tradicional obj.atr (Tema 28)
+    ACCESO,         // Acceso tradicional obj.atr
     ACCESO_POS,     // Acceso posicional a atributo obj[pos] (Tema 29)
     SALIDA,         // Sentencia pout
     RETORNO,        // Sentencia ret
